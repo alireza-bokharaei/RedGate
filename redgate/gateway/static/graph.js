@@ -3,7 +3,7 @@
   "use strict";
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  else root.RedGateGraph = api;
+  else root.RedstrikeGraph = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
   const NS = "http://www.w3.org/2000/svg";

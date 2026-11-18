@@ -1,9 +1,9 @@
 # =============================================================================
-# RedGate Local AI Model Hub & Quantization Configuration
+# Redstrike Local AI Model Hub & Quantization Configuration
 # Enables 100% offline, private, zero-API-cost operation using Ollama,
 # LM Studio, and Hugging Face GGUF quantized open-weight models.
 # IMPORTANT: Regardless of which local model is attached (standard or custom
-# open-weight), RedGate ALWAYS enforces allowlists, non-exploitation guards,
+# open-weight), Redstrike ALWAYS enforces allowlists, non-exploitation guards,
 # 4-language static validation, Go sandbox isolation, and append-only auditing.
 # =============================================================================
 
@@ -91,7 +91,7 @@ huggingface_catalog:
     params_b: 14.7
     hf_repo: "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF"
     ollama_tag: "qwen2.5-coder:14b"
-    specialty: "Primary RedGate default: strong Go/Python code + structured JSON triage"
+    specialty: "Primary Redstrike default: strong Go/Python code + structured JSON triage"
     recommended_quants: ["Q4_K_M", "Q5_K_M", "Q6_K"]
     role_fit: ["script_generation", "recon_triage", "report_writing"]
 
@@ -127,6 +127,6 @@ custom_model_governance:
   allow_custom_modelfile: true
   # Hard platform rule: even when operators attach custom/domain-tuned open-weight
   # local models to avoid false-positive refusals on security terminology, every
-  # output remains untrusted and MUST pass RedGate policy, validator, and sandbox gates.
+  # output remains untrusted and MUST pass Redstrike policy, validator, and sandbox gates.
   bypass_policy_for_local_models: false
   mandatory_human_review_confidence_threshold: 0.80

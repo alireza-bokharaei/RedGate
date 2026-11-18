@@ -1,4 +1,4 @@
-# RedGate 2.1.0 — راهنمای فنی / Technical Guide
+# Redstrike 2.1.0 — راهنمای فنی / Technical Guide
 
 [معرفی پروژه / Project overview](../README.md) · [فارسی](#fa) · [English](#en)
 
@@ -11,7 +11,7 @@
 
 ### محدودهٔ این راهنما
 
-این پوشه شامل کد اجرایی **دروازهٔ سرخ (RedGate)** است: Gateway، سرویس ابزار MCP، Runner، رابط وب، تنظیمات، Skills و تست‌ها. راهنمای زیر برای کار با همین اجزا است؛ معرفی، نصب اولیه و الزامات استفادهٔ مجاز در [README اصلی](../README.md) آمده است.
+این پوشه شامل کد اجرایی **یورش (Redstrike)** است: Gateway، سرویس ابزار MCP، Runner، رابط وب، تنظیمات، Skills و تست‌ها. راهنمای زیر برای کار با همین اجزا است؛ معرفی، نصب اولیه و الزامات استفادهٔ مجاز در [README اصلی](../README.md) آمده است.
 
 **همهٔ فرمان‌های این راهنما از پوشهٔ `redgate/` اجرا می‌شوند، مگر خلاف آن گفته شود.** ابزار فقط برای ارزیابیِ دارای مجوز و محدودهٔ معتبر است. [امنیت](SECURITY.md) و [محدودیت‌ها](LIMITATIONS.md) را رعایت کنید.
 
@@ -156,7 +156,7 @@ bootstrap فایل `.env` خصوصی می‌سازد؛ آن را وارد Git ن
 
 ### Scope of this guide
 
-This directory contains **RedGate's** executable components: the Gateway, MCP tool service, Runner, web console, configuration, Skills and tests. This guide covers those components; see the [main README](../README.md) for the project introduction, initial setup and authorized-use requirements.
+This directory contains **Redstrike's** executable components: the Gateway, MCP tool service, Runner, web console, configuration, Skills and tests. This guide covers those components; see the [main README](../README.md) for the project introduction, initial setup and authorized-use requirements.
 
 **Run commands below from `redgate/` unless stated otherwise.** Use the software only with authorization and a valid scope. Follow [Security](SECURITY.md) and [Limitations](LIMITATIONS.md).
 

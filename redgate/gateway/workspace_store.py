@@ -1,4 +1,4 @@
-"""Durable mission, asset, evidence and retest storage for RedGate 2.1.
+"""Durable mission, asset, evidence and retest storage for Redstrike 2.1.
 
 Graphs are projections of authoritative rows, not a second, drifting copy of
 findings. All identities and deduplication keys are computed by the application.

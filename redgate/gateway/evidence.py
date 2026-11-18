@@ -233,7 +233,7 @@ class EvidenceService:
                 "connected_ip": observation.connected_ip,
                 "status_code": observation.status_code,
                 "request_headers": {
-                    "user-agent": "RedGate/2.1 (Authorized Read-Only Assessment)",
+                    "user-agent": "Redstrike/2.1 (Authorized Read-Only Assessment)",
                     "accept-encoding": "identity",
                 },
                 "response_headers": response_headers,

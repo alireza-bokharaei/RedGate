@@ -1,8 +1,8 @@
-# Security and Responsible Use — RedGate 2.1
+# Security and Responsible Use — Redstrike 2.1
 
 ## Authorized use only
 
-Use RedGate only against assets covered by signed written Rules of Engagement (RoE). Technical allowlisting is not legal authorization. Default entries are examples/documentation ranges plus an explicit loopback lab; they are not authorization to assess someone else's infrastructure.
+Use Redstrike only against assets covered by signed written Rules of Engagement (RoE). Technical allowlisting is not legal authorization. Default entries are examples/documentation ranges plus an explicit loopback lab; they are not authorization to assess someone else's infrastructure.
 
 The 2.1 mission path is bounded, read-only posture assessment. It does not import ARTEX exploitation, credential theft, evasion, persistence or lateral-movement workflows. Existing high/critical-risk external-tool entries remain disabled by default; gated work still requires a different authorized approver. Do not enable tools merely because a model recommends them.
 

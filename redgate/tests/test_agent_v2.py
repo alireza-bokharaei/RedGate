@@ -1,4 +1,4 @@
-"""Tests for RedGate v2 Personalized Agent, Local Model Hub, Quantization,
+"""Tests for Redstrike v2 Personalized Agent, Local Model Hub, Quantization,
 Skills, Persistent Memory, Subdomain-to-Report Recon Pipeline, and Human-Judgment Loop.
 """
 

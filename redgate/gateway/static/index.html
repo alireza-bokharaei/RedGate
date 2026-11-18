@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RedGate 2.1.0 — Mission &amp; Evidence Workspace</title>
+  <title>Redstrike 2.1.0 — Mission &amp; Evidence Workspace</title>
   <link rel="stylesheet" href="/static/styles.css" />
   <link rel="stylesheet" href="/static/workspace.css" />
 </head>
@@ -17,7 +17,7 @@
           <path d="M11 16.2L14.4 19.6L21.5 12.5" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <div>
-          <div class="brand-title">RedGate <span class="version-tag">v2.1.0</span></div>
+          <div class="brand-title">Redstrike <span class="version-tag">v2.1.0</span></div>
           <div class="brand-sub">Mission workspace · Evidence · Local AI · Bounded Go runner</div>
         </div>
       </div>
@@ -201,7 +201,7 @@
         <section class="tab-panel" id="tab-overview">
           <div class="panel-header">
             <div>
-              <h1>RedGate v2 — Personalized Security Testing &amp; Local-AI Recon Platform</h1>
+              <h1>Redstrike v2 — Personalized Security Testing &amp; Local-AI Recon Platform</h1>
               <p>Combines 3-layer policy governance with local quantized LLMs (Ollama / LM Studio / HF GGUF), reusable Skills, persistent Memory, and Claude Code MCP integration.</p>
             </div>
             <button class="btn btn-secondary" id="refreshAllBtn">Refresh Telemetry</button>
@@ -448,7 +448,7 @@
           <div class="panel-header">
             <div>
               <h1>Local AI Model Hub — Ollama, LM Studio, Hugging Face GGUF &amp; Quantization</h1>
-              <p>Run open-weight AI models 100% locally, privately, offline, and with zero API cost. All model outputs stay locked behind RedGate validation &amp; Go Sandbox.</p>
+              <p>Run open-weight AI models 100% locally, privately, offline, and with zero API cost. All model outputs stay locked behind Redstrike validation &amp; Go Sandbox.</p>
             </div>
           </div>
 
@@ -489,7 +489,7 @@
               <div class="btn-row">
                 <button type="submit" class="btn btn-primary btn-sm">Switch Active Runtime</button>
               </div>
-              <small class="field-hint">Governance invariant: Custom/open-weight local models are supported for private offline security analysis, and always pass through RedGate allowlist, validator, and Go sandbox checks.</small>
+              <small class="field-hint">Governance invariant: Custom/open-weight local models are supported for private offline security analysis, and always pass through Redstrike allowlist, validator, and Go sandbox checks.</small>
             </form>
 
             <form class="card form-stack" id="quantCalcForm">
@@ -543,7 +543,7 @@
             <pre class="code-output compact"># 1. Pull &amp; build your private quantized local analyst model (Ollama or LM Studio — $0 API cost)
 ./scripts/setup_local_llm.sh ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
 
-# 2. Open repo in Claude Code — auto-loads CLAUDE.md + .mcp.json (RedGate MCP Server) + custom slash commands:
+# 2. Open repo in Claude Code — auto-loads CLAUDE.md + .mcp.json (Redstrike MCP Server) + custom slash commands:
 #    /project:new-skill &lt;idea&gt;      -> builds &amp; validates a new recon skill YAML without manual coding
 #    /project:new-mcp-tool &lt;tool&gt;   -> scaffolds a whitelisted MCP tool + policy + pytest suite
 #    /project:triage-report         -> helps apply human judgment &amp; extract false-positive Memory rules</pre>

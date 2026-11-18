@@ -210,7 +210,7 @@ func (p *HTTPProbe) Capture(ctx context.Context, req HTTPProbeRequest) (HTTPProb
 	if err != nil {
 		return result, err
 	}
-	httpReq.Header.Set("User-Agent", "RedGate/2.1 (Authorized Read-Only Assessment)")
+	httpReq.Header.Set("User-Agent", "Redstrike/2.1 (Authorized Read-Only Assessment)")
 	httpReq.Header.Set("Accept-Encoding", "identity")
 	resp, err := client.Do(httpReq)
 	if err != nil {

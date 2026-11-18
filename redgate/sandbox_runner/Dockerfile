@@ -12,7 +12,7 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 # Native runner needs only CA roots; HTTP evidence does not invoke a shell.
 FROM debian:bookworm-slim AS evidence
 ARG REDGATE_VERSION=2.1.0
-LABEL org.opencontainers.image.title="RedGate Sandbox Runner" \
+LABEL org.opencontainers.image.title="Redstrike Sandbox Runner" \
       org.opencontainers.image.version="${REDGATE_VERSION}"
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates \
     && rm -rf /var/lib/apt/lists/* \

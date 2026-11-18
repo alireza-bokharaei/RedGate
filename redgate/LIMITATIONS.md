@@ -2,7 +2,7 @@
 
 ## Scope of this release
 
-This is an independent addition of mission/graph/evidence/retest workflows to RedGate, not a full ARTEX source merge, feature clone or compatibility layer. See [ARTEX_SCOPE.md](docs/ARTEX_SCOPE.md). Exploitation, credential attacks, stealth, persistence, browser interception, unrestricted proxy/replay and autonomous offensive agents are not added.
+This is an independent addition of mission/graph/evidence/retest workflows to Redstrike, not a full ARTEX source merge, feature clone or compatibility layer. See [ARTEX_SCOPE.md](docs/ARTEX_SCOPE.md). Exploitation, credential attacks, stealth, persistence, browser interception, unrestricted proxy/replay and autonomous offensive agents are not added.
 
 ## Authorization and traffic
 
@@ -25,7 +25,7 @@ This is an independent addition of mission/graph/evidence/retest workflows to Re
 - Asset graph: up to 200 server-projected nodes. Exploration graph: up to 500 nodes. Console SVG: up to 120 nodes. Use paginated inventory APIs for larger datasets.
 - The workspace displays the latest 30 missions and 20 evidence records. JSON mission export caps evidence at 100 and retest history at 100 per finding; inspect the export's limit/truncation metadata. It is not an unlimited archive of an engagement.
 - Discovery is not a tested finding. Coverage counts recorded checks/evidence for known assets, not every path, port, vulnerability class or business workflow.
-- No automatic importer/backfill of old recon runs or ARTEX databases is provided. Existing RedGate records are preserved; workspace inventory is built by new activity.
+- No automatic importer/backfill of old recon runs or ARTEX databases is provided. Existing Redstrike records are preserved; workspace inventory is built by new activity.
 
 ## Evidence and retests
 
@@ -42,7 +42,7 @@ This is an independent addition of mission/graph/evidence/retest workflows to Re
 - Compose provides non-root/read-only service containers, not per-script isolation. Jobs within a runner share a UID and persistent tool caches; a hostile adapter could interfere with that state. Avoid multi-tenant hostile workloads. Native evidence invokes no user-supplied code.
 - `lite` omits Go/Node adapters and their validators. `full` includes all four languages but first-use Go compilation under finite memory/time may fail closed until caches are warm. The evidence-only runner target refuses scripts regardless of installed base utilities.
 - PostgreSQL's optional Compose profile is provisioning only: the application still uses SQLite. There is no supported PostgreSQL driver, automatic database conversion or multi-node deployment.
-- No Docker daemon was available in the implementation sandbox. [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) subsequently passed full/lite build/startup/readiness/capability checks and built the evidence-only target. Intended-host resource enforcement, in-container script/collector behavior, image-size comparisons, performance benchmarks and real external inference still require separate validation. CI/local test timings are not production capacity or speedup measurements.
+- No Docker daemon was available in the implementation sandbox. [GitHub CI](https://github.com/alireza-bokharaei/Redstrike/actions/runs/44288999257) subsequently passed full/lite build/startup/readiness/capability checks and built the evidence-only target. Intended-host resource enforcement, in-container script/collector behavior, image-size comparisons, performance benchmarks and real external inference still require separate validation. CI/local test timings are not production capacity or speedup measurements.
 
 ## Local models and human judgment
 

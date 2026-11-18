@@ -1,4 +1,4 @@
-# RedGate | دروازهٔ سرخ
+# Redstrike | یورش
 
 **ارزیابی امنیتیِ مجاز، کنترل‌شده و قابل‌بررسی**
 
@@ -15,9 +15,9 @@
 
 ## فارسی
 
-### دروازهٔ سرخ چیست؟
+### یورش چیست؟
 
-**دروازهٔ سرخ (RedGate)** فضای کاری یکپارچه‌ای برای برنامه‌ریزی، اجرای محدود و مستندسازی ارزیابی‌های امنیتیِ مجاز است. اپراتور می‌تواند محدودهٔ یک ارزیابی را تعیین کند، مأموریت بسازد، بررسی‌های فقط‌خواندنی انجام دهد، شواهد HTTP جمع‌آوری کند و نتیجه را برای بازبینی انسانی نگه دارد.
+**یورش (Redstrike)** فضای کاری یکپارچه‌ای برای برنامه‌ریزی، اجرای محدود و مستندسازی ارزیابی‌های امنیتیِ مجاز است. اپراتور می‌تواند محدودهٔ یک ارزیابی را تعیین کند، مأموریت بسازد، بررسی‌های فقط‌خواندنی انجام دهد، شواهد HTTP جمع‌آوری کند و نتیجه را برای بازبینی انسانی نگه دارد.
 
 در این پروژه، مدل زبانی جایگزین مجوز مالک دارایی یا تصمیم تحلیلگر نیست. درخواست‌ها از درگاه کنترل سیاست عبور می‌کنند؛ دسترسی اپراتور، محدودهٔ هدف، بازهٔ قواعد درگیری یا **RoE**، سهمیه و سیاست ابزارها در همان مسیر بررسی می‌شوند. **مشاهدهٔ داشبورد یا ذخیرهٔ برنامه به‌تنهایی اسکن را شروع نمی‌کند.**
 
@@ -54,8 +54,8 @@
 <div dir="ltr">
 
 ```bash
-git clone https://github.com/alireza-bokharaei/RedGate.git
-cd RedGate/redgate
+git clone https://github.com/alireza-bokharaei/Redstrike.git
+cd Redstrike/redgate
 ./scripts/bootstrap_env.sh
 ./scripts/redgate.sh doctor
 ./scripts/redgate.sh up --full
@@ -154,7 +154,7 @@ npm ci --ignore-scripts
 
 ### مرزهای امنیتی و عملیاتی
 
-- Runner، sandbox کامل سیستم‌عامل یا ماشین مجازی نیست. پیش از اجرای کد نامطمئن، به جداسازی مناسب و سیاست خروجی مستقلِ **default-deny برای IPv4 و IPv6** نیاز دارید. شبکه‌های Compose به‌تنهایی firewall مقصد نیستند و RedGate قوانین پیشنهادی firewall را نصب نمی‌کند.
+- Runner، sandbox کامل سیستم‌عامل یا ماشین مجازی نیست. پیش از اجرای کد نامطمئن، به جداسازی مناسب و سیاست خروجی مستقلِ **default-deny برای IPv4 و IPv6** نیاز دارید. شبکه‌های Compose به‌تنهایی firewall مقصد نیستند و Redstrike قوانین پیشنهادی firewall را نصب نمی‌کند.
 - شواهد به‌طور پیش‌فرض با **HEAD و بدون بدنه** ذخیره می‌شوند. پیش‌نمایش متنی فقط با GET صریح و حداکثر **۸ کیبی‌بایت** است. پالایش الگو‌محور، حذف همهٔ اسرار و اطلاعات شخصی را تضمین نمی‌کند.
 - SHA-256 مدرک، همان نمای **ذخیره‌شده و پالایش‌شده** را کنترل می‌کند، نه اصالت بستهٔ خام شبکه. حفاظت از میزبان، پایگاه داده و پشتیبان‌ها همچنان لازم است.
 - `not_observed` به معنای رفع قطعی آسیب‌پذیری نیست. شناسایی، اهمیت کسب‌وکاری و نتیجهٔ نهایی باید توسط انسان بازبینی شوند.
@@ -169,7 +169,7 @@ npm ci --ignore-scripts
 - [گزارش بررسی‌ها و روش تکرار تست مرورگر](redgate/docs/VERIFICATION_2.1.0.md)
 - [امنیت](redgate/SECURITY.md) · [محدودیت‌ها](redgate/LIMITATIONS.md) · [گردش‌کارهای CI](.github/workflows/verify.yml)
 
-RedGate با مجوز **MIT**، همراه با اخطار استفادهٔ مجاز درج‌شده در [LICENSE](redgate/LICENSE)، منتشر می‌شود. وابستگی‌ها، ابزارها و مدل‌های مورد استفاده، مجوزهای خود را دارند. اعتبارنامه‌ها، داده‌های ارزیابی و خروجی‌های اجرایی را وارد Git نکنید.
+Redstrike با مجوز **MIT**، همراه با اخطار استفادهٔ مجاز درج‌شده در [LICENSE](redgate/LICENSE)، منتشر می‌شود. وابستگی‌ها، ابزارها و مدل‌های مورد استفاده، مجوزهای خود را دارند. اعتبارنامه‌ها، داده‌های ارزیابی و خروجی‌های اجرایی را وارد Git نکنید.
 
 </div>
 
@@ -179,9 +179,9 @@ RedGate با مجوز **MIT**، همراه با اخطار استفادهٔ مج
 
 ## English
 
-### What is RedGate?
+### What is Redstrike?
 
-**RedGate** is an integrated workspace for planning, bounded execution and documentation of authorized security assessments. Operators can define an engagement's scope, create missions, perform read-only checks, collect HTTP evidence and retain results for human review.
+**Redstrike** is an integrated workspace for planning, bounded execution and documentation of authorized security assessments. Operators can define an engagement's scope, create missions, perform read-only checks, collect HTTP evidence and retain results for human review.
 
 A language model does not replace asset-owner authorization or an analyst's judgment. Requests pass through the governance gateway, where operator access, target scope, the **Rules of Engagement (RoE)** window, quotas and tool policies are checked. **Viewing a dashboard or saving a plan does not itself start a scan.**
 
@@ -216,8 +216,8 @@ The current deployment model uses **one Gateway process per SQLite database**, n
 Requirements: **Linux, Git, Docker Engine, Docker Compose v2.20+ and BuildKit**. Credential bootstrap also needs OpenSSL or Python 3.
 
 ```bash
-git clone https://github.com/alireza-bokharaei/RedGate.git
-cd RedGate/redgate
+git clone https://github.com/alireza-bokharaei/Redstrike.git
+cd Redstrike/redgate
 ./scripts/bootstrap_env.sh
 ./scripts/redgate.sh doctor
 ./scripts/redgate.sh up --full
@@ -298,7 +298,7 @@ The local launcher defaults to loopback, `mock` AI and temporary private credent
 
 ### Security and operational boundaries
 
-- The Runner is not a complete OS sandbox or VM. Untrusted code requires appropriate independent containment and externally enforced **default-deny IPv4/IPv6 egress**. Compose networks alone are not destination firewalls; RedGate does not install its rendered firewall rules.
+- The Runner is not a complete OS sandbox or VM. Untrusted code requires appropriate independent containment and externally enforced **default-deny IPv4/IPv6 egress**. Compose networks alone are not destination firewalls; Redstrike does not install its rendered firewall rules.
 - Evidence defaults to **HEAD without a response body**. Text previews require explicit GET and are capped at **8 KiB**. Heuristic redaction cannot guarantee removal of all secrets or personal data.
 - Evidence SHA-256 checks cover the **stored, redacted representation**, not raw-wire authenticity. Protect the host, database and backups independently.
 - `not_observed` does not prove remediation. Identification, business impact and final conclusions require human review.
@@ -313,4 +313,4 @@ The local launcher defaults to loopback, `mock` AI and temporary private credent
 - [Verification record and reproducible browser test](redgate/docs/VERIFICATION_2.1.0.md)
 - [Security](redgate/SECURITY.md) · [Limitations](redgate/LIMITATIONS.md) · [CI workflow](.github/workflows/verify.yml)
 
-RedGate is distributed under the **MIT License**, with an authorized-use notice in [LICENSE](redgate/LICENSE). Dependencies, tools and models retain their respective licenses. Never commit credentials, engagement data or runtime artifacts to Git.
+Redstrike is distributed under the **MIT License**, with an authorized-use notice in [LICENSE](redgate/LICENSE). Dependencies, tools and models retain their respective licenses. Never commit credentials, engagement data or runtime artifacts to Git.

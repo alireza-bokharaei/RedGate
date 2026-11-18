@@ -1,12 +1,12 @@
 """Local AI Model Hub: Ollama, LM Studio, Hugging Face GGUF & Quantization Advisor.
 
-Enables 100% private, offline, zero-API-cost inference by connecting RedGate to
+Enables 100% private, offline, zero-API-cost inference by connecting Redstrike to
 local runtimes (Ollama on :11434, LM Studio on :1234, vLLM/llama.cpp) and helping
 operators choose optimal GGUF quantizations (Q3_K_M..Q8_0/FP16) for their hardware.
 
 Security Invariant:
   Regardless of which local model is attached (standard or custom open-weight),
-  RedGate never bypasses allowlists, non-exploitation checks, 4-language static
+  Redstrike never bypasses allowlists, non-exploitation checks, 4-language static
   validation, Go sandbox isolation, Two-Person approval, or append-only audit logs.
 """
 
@@ -186,7 +186,7 @@ class LocalModelHub:
                     "params_b": est_params,
                     "hf_repo": clean_repo,
                     "ollama_tag": f"hf.co/{clean_repo}",
-                    "specialty": "Operator-selected open-weight GGUF model (runs under full RedGate sandbox & policy gates)",
+                    "specialty": "Operator-selected open-weight GGUF model (runs under full Redstrike sandbox & policy gates)",
                     "recommended_quants": ["Q4_K_M", "Q5_K_M", "Q6_K", "Q8_0"],
                     "role_fit": [task],
                 },
@@ -265,7 +265,7 @@ class LocalModelHub:
             },
             "governance_note": (
                 "All local models (including custom open-weight Hugging Face GGUF builds) run 100% "
-                "privately with zero API cost while remaining bound by RedGate allowlist, static "
+                "privately with zero API cost while remaining bound by Redstrike allowlist, static "
                 "validation, Go sandbox, and human-judgment controls."
             ),
             "recommendations": recommendations,
@@ -274,13 +274,13 @@ class LocalModelHub:
 
     @staticmethod
     def render_modelfile(from_model: str, context_length: int = 8192) -> str:
-        """Build a ready-to-use Ollama Modelfile tuned for RedGate recon & script tasks."""
+        """Build a ready-to-use Ollama Modelfile tuned for Redstrike recon & script tasks."""
         return (
             f"FROM {from_model}\n"
             "PARAMETER temperature 0.12\n"
             "PARAMETER top_p 0.9\n"
             f"PARAMETER num_ctx {int(context_length)}\n"
-            'SYSTEM "You are RedGate Analyst: perform precise, evidence-backed security '
+            'SYSTEM "You are Redstrike Analyst: perform precise, evidence-backed security '
             "recon triage, respect operator Skills and false-positive Memory rules, flag "
             'uncertain findings for human judgment, and stay within authorized read-only scope."\n'
         )

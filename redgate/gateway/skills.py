@@ -1,4 +1,4 @@
-"""Composable, policy-validated Skill registry for the RedGate Recon Agent.
+"""Composable, policy-validated Skill registry for the Redstrike Recon Agent.
 
 Skills encode reusable recon playbooks, severity calibration rules, and reporting
 focus in declarative YAML or operator-defined specs. A skill can NEVER unlock

@@ -1,4 +1,4 @@
-# RedGate 2.1.0 — single-process governance, internal tools, bounded Go runner.
+# Redstrike 2.1.0 — single-process governance, internal tools, bounded Go runner.
 # ./scripts/bootstrap_env.sh && ./scripts/redgate.sh up
 # REDGATE_IMAGE_FLAVOR=lite ./scripts/redgate.sh up  (no Go/JS adapters)
 services:
@@ -111,7 +111,7 @@ services:
     pids_limit: 96
     networks: [control_net, target_egress_net]
 
-  # Provisioning experiment ONLY. RedGate currently has a SQLite backend; this
+  # Provisioning experiment ONLY. Redstrike currently has a SQLite backend; this
   # profile does not switch it to PostgreSQL. A password must be supplied to use it.
   db:
     image: postgres:16-alpine

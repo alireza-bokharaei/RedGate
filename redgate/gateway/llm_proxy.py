@@ -122,7 +122,7 @@ class LLMProxyGateway:
         if match:
             raise LLMProxyError(
                 f"Objective rejected by non-exploitation policy (matched '{match.group(0)}'). "
-                "RedGate only generates benign, auditable security verification scripts."
+                "Redstrike only generates benign, auditable security verification scripts."
             )
 
     def build_restricted_messages(
@@ -225,7 +225,7 @@ class LLMProxyGateway:
             {
                 "role": "system",
                 "content": (
-                    "You are RedGate Local Security Triage Analyst. Produce a concise, high-signal "
+                    "You are Redstrike Local Security Triage Analyst. Produce a concise, high-signal "
                     "3-paragraph analysis covering: (1) top prioritized technical exposure, "
                     "(2) how the operator's Skill and saved Memory rules reduced noise, and "
                     "(3) exact areas where human judgment is irreplaceable (business logic, auth, "
@@ -359,7 +359,7 @@ class LLMProxyGateway:
 
         if language == "python":
             script = (
-                '"""RedGate generated HTTP defensive header verification script."""\n'
+                '"""Redstrike generated HTTP defensive header verification script."""\n'
                 "import json\n"
                 "import urllib.error\n"
                 "import urllib.request\n\n"
@@ -372,7 +372,7 @@ class LLMProxyGateway:
                 '    "referrer-policy",\n'
                 "]\n\n"
                 "def main() -> None:\n"
-                '    req = urllib.request.Request(TARGET_URL, method="GET", headers={"User-Agent": "RedGate-Sandbox/1.0"})\n'
+                '    req = urllib.request.Request(TARGET_URL, method="GET", headers={"User-Agent": "Redstrike-Sandbox/1.0"})\n'
                 "    report = {\n"
                 f'        "objective": "{short_obj}",\n'
                 '        "target_url": TARGET_URL,\n'
@@ -402,7 +402,7 @@ class LLMProxyGateway:
                 "#!/usr/bin/env bash\n"
                 "set -euo pipefail\n\n"
                 f'TARGET_URL="{url}"\n'
-                f'printf \'[RedGate Bash Check] objective="%s" url="%s"\\n\' "{short_obj}" "$TARGET_URL"\n\n'
+                f'printf \'[Redstrike Bash Check] objective="%s" url="%s"\\n\' "{short_obj}" "$TARGET_URL"\n\n'
                 'if HEADERS="$(curl -sS -I --max-time 5 "$TARGET_URL" 2>/dev/null)"; then\n'
                 '  printf "%s\\n" "$HEADERS" | head -n 1 | tr -d \'\\r\'\n'
                 '  for hdr in strict-transport-security content-security-policy x-frame-options x-content-type-options referrer-policy; do\n'

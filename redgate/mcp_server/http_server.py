@@ -28,7 +28,7 @@ MAX_OUTPUT_BYTES = int(os.environ.get("REDGATE_MCP_MAX_OUTPUT_BYTES", "65536"))
 executor = MCPToolExecutor(max_concurrent=MAX_CONCURRENT, max_output_bytes=MAX_OUTPUT_BYTES)
 
 app = FastAPI(
-    title="RedGate Layer 2 — MCP Tool Server",
+    title="Redstrike Layer 2 — MCP Tool Server",
     version=__version__,
     docs_url=None,
     redoc_url=None,

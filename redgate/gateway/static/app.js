@@ -1,4 +1,4 @@
-/* RedGate v2 Web Console — Zero external dependencies, relative API calls only */
+/* Redstrike v2 Web Console — Zero external dependencies, relative API calls only */
 (() => {
   "use strict";
 
@@ -169,7 +169,7 @@
     if (epoch !== state.refreshEpoch || token !== state.token) return;
     if (!meRes.ok) {
       state.me = null;
-      window.RedGateWorkspace.reset();
+      window.RedstrikeWorkspace.reset();
       flashToast("Authentication failed. Provide a valid Bearer token.");
       return;
     }
@@ -228,7 +228,7 @@
       state.modelHub = hubRes.data;
       renderModelHub();
     }
-    await window.RedGateWorkspace.refresh();
+    await window.RedstrikeWorkspace.refresh();
   }
 
   function renderEngagements(engs) {
@@ -586,7 +586,7 @@
           method: "POST",
           body: JSON.stringify({
             decision,
-            note: `Reviewed via RedGate Console by ${state.me.operator_id}`,
+            note: `Reviewed via Redstrike Console by ${state.me.operator_id}`,
             execute_immediately: true,
           }),
         });
@@ -646,7 +646,7 @@
     });
 
     $("engagementSelect").addEventListener("change", async (e) => {
-      window.RedGateWorkspace.reset();
+      window.RedstrikeWorkspace.reset();
       state.currentReconRun = null;
       state.engagementId = e.target.value;
       const defaultTarget = state.engagementId === "ENG-LOCAL-LAB" ? "127.0.0.1" : "example.com";
@@ -665,7 +665,7 @@
     });
 
     $("roleSelect").addEventListener("change", async (e) => {
-      window.RedGateWorkspace.reset();
+      window.RedstrikeWorkspace.reset();
       state.currentReconRun = null;
       state.me = null;
       state.token = e.target.value;
@@ -685,7 +685,7 @@
       e.preventDefault();
       const val = $("manualTokenInput").value.trim();
       if (val) {
-        window.RedGateWorkspace.reset();
+        window.RedstrikeWorkspace.reset();
         state.currentReconRun = null;
         state.me = null;
         state.token = val;
@@ -1150,7 +1150,7 @@
   }
 
   async function init() {
-    window.RedGateWorkspace.init({
+    window.RedstrikeWorkspace.init({
       request: api,
       getContext: () => ({ engagementId: state.engagementId, operatorId: state.me?.operator_id,
         role: state.me?.role, skills: state.skills }),

@@ -1,4 +1,4 @@
-"""Typed Pydantic v2 schemas for the RedGate Gateway API."""
+"""Typed Pydantic v2 schemas for the Redstrike Gateway API."""
 
 from __future__ import annotations
 

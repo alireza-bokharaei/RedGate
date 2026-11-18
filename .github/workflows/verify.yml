@@ -1,4 +1,4 @@
-name: RedGate verification
+name: Redstrike verification
 
 on:
   push:
