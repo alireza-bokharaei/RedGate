@@ -1,0 +1,26 @@
+# Only source and locked build inputs may enter the Docker build context.
+**
+!VERSION
+!LICENSE
+!requirements.lock
+!package.json
+!package-lock.json
+!gateway/
+!gateway/**
+!mcp_server/
+!mcp_server/**
+!sandbox_runner/
+!sandbox_runner/**
+!config/
+!config/**
+!skills/
+!skills/**
+# These exclusions also apply inside otherwise allowed source directories.
+**/__pycache__
+**/*.py[cod]
+**/.env*
+**/*.db*
+**/secrets
+**/data
+**/node_modules
+**/*_test.go

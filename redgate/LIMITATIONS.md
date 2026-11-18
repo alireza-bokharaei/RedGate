@@ -1,46 +1,51 @@
-# LIMITATIONS & OPERATIONAL BOUNDARIES
+# Limitations and Operational Boundaries — 2.1.0
 
-RedGate is a **policy-controlled orchestration, static-validation, sandboxing, and audit platform** for authorized internal security testing teams. Every operator, team lead, and engagement sponsor MUST understand and accept the following limitations before operating the platform.
+## Scope of this release
 
----
+This is an independent addition of mission/graph/evidence/retest workflows to RedGate, not a full ARTEX source merge, feature clone or compatibility layer. See [ARTEX_SCOPE.md](docs/ARTEX_SCOPE.md). Exploitation, credential attacks, stealth, persistence, browser interception, unrestricted proxy/replay and autonomous offensive agents are not added.
 
-## 1. No Guarantee of Alarm-Free or Stealth Operation
+## Authorization and traffic
 
-- **RedGate does NOT suppress, evade, or bypass SIEM, IDS/IPS, WAF, EDR, or network telemetry.**
-- Constraining parameters (for example, limiting `nmap` to `-T1`/`-T2` and restricting `tcp_port_probe` to 10 ports with inter-probe pacing) **reduces scan noise and outage risk**, not detectability.
-- Even a single `HEAD /` request, TLS handshake, DNS query, or `-sV` service probe generates normal application logs, firewall flow records, and potentially SOC alerts.
-- Evasion flags (`nmap -D`, `-S`, `-f`, `--spoof-mac`, `--data-string`, etc.) are **permanently blocked** in code. Blue-team / SOC deconfliction remains a mandatory human process prior to every engagement.
+- Application scope checks do not replace legal authorization, SOC deconfliction, external egress controls or careful engagement scheduling.
+- DNS resolution, TLS, TCP checks and even HEAD requests are observable and can trigger alerts. Read-only HTTP can still have server-side effects on poorly designed targets. No stealth or zero-impact guarantee is made.
+- HTTP evidence fails closed without a safe DNS pin, even if legacy strict-DNS mode has been relaxed. Metadata, link-local, multicast and unspecified destinations are not valid evidence targets. Explicitly allowlisted loopback is for private labs; inside Docker, `127.0.0.1` denotes the worker container, not the host gateway.
+- Domain scope does not mean that an entire shared-hosting IP is authorized. Do not broaden egress scopes merely to make a tool run.
 
-## 2. No Exploit Authoring or Weaponized Payloads
+## Mission lifecycle and reliability
 
-- **The platform itself contains zero exploit logic, credential-stuffing modules, payload encoders, C2 channels, or post-exploitation capabilities.**
-- The LLM proxy explicitly rejects objectives requesting exploits, reverse/bind shells, brute-force routines, denial-of-service loops, privilege escalation, data exfiltration, or defense evasion.
-- High-risk external tools (`hydra`, `john`, `sqlmap`, `nmap_aggressive`) are **disabled by default** in `config/tool_policy.yaml`, require **Two-Person Approval** even if temporarily enabled by an administrator, and permanently prohibit OS-execution or file-access flags (e.g., `sqlmap --os-shell`, `--os-pwn`, `--file-write`, `--file-read`) at the source-code level.
+- A single gateway process owns the in-memory workers; SQLite stores their durable state. Do not run multiple Uvicorn workers, replicas or a shared network filesystem database. There is no distributed lease, external job broker or horizontally scaled scheduler.
+- At most 8 target hosts, 64 actions and 1800 seconds per mission; at most two active missions globally and one per owner. A pause does not extend the absolute deadline. A terminal/budget-exhausted mission needs a new plan.
+- Pause drains the current intent. Cancel gates later actions, not an already-sent network request. Shutdown can leave a remote collector finishing its bounded in-flight request.
+- Completed/checkpointed runs are not silently replayed. After a hard crash, an action that performed I/O but did not persist its checkpoint may be retried on explicit resume. There is no exactly-once network execution guarantee. Reserved/failed attempts are not refunded.
+- A mission can complete with failed/skipped checks or unavailable evidence; inspect intent warnings and step results. `completed` describes orchestration, not a clean bill of security.
+- Plans snapshot a Skill; live target and tool permissions still apply. Gated follow-ups enter the existing approval workflow rather than executing autonomously.
 
-## 3. AI-Generated Scripts Are Untrusted by Default
+## Graphs, coverage and exports
 
-- Output from any LLM (local or cloud) may be buggy, hallucinated, noisy, vulnerable to indirect prompt injection, or subtly non-compliant with engagement intent.
-- RedGate treats every AI-generated and operator-submitted script as **untrusted code**:
-  1. Prompts pass through regex secret scrubbing and a locked system template.
-  2. Returned source code must pass language-specific static validation (`ast.parse` + AST walker, `bash -n` + `shellcheck`, `gofmt` + `go list` + `go vet` + `go build`, `node --check` + `eslint` + module allowlist) plus literal host allowlist checks.
-  3. Validated scripts are pinned by **SHA-256 digest** before execution; any byte mismatch is rejected by the Go sandbox runner.
-  4. Scripts execute inside an ephemeral `/tmp/sandbox/job-*` workspace with scrubbed environment variables, process-group timeouts, kernel resource limits (`prlimit`), container read-only root filesystem, and dropped Linux capabilities.
+- Asset graph: up to 200 server-projected nodes. Exploration graph: up to 500 nodes. Console SVG: up to 120 nodes. Use paginated inventory APIs for larger datasets.
+- The workspace displays the latest 30 missions and 20 evidence records. JSON mission export caps evidence at 100 and retest history at 100 per finding; inspect the export's limit/truncation metadata. It is not an unlimited archive of an engagement.
+- Discovery is not a tested finding. Coverage counts recorded checks/evidence for known assets, not every path, port, vulnerability class or business workflow.
+- No automatic importer/backfill of old recon runs or ARTEX databases is provided. Existing RedGate records are preserved; workspace inventory is built by new activity.
 
-## 4. Static Analysis Is Defense-in-Depth, Not a Sound Proof
+## Evidence and retests
 
-- By Rice's theorem, static analysis cannot decide all dynamic runtime behaviors of arbitrary code (e.g., constructing URLs via string concatenation at runtime).
-- Therefore, **Layer 3 sandbox isolation and container/host egress firewalling are the primary security boundary**, while static analysis acts as an early filter.
-- Production deployments MUST enforce host- or namespace-level default-deny egress firewall rules (using `target_egress_net` + `nftables`/`iptables` rules rendered by `sandbox_runner/egress.go`) in addition to application-level allowlist checks.
+- Only anonymous HEAD/GET with verified HTTPS or explicit plaintext HTTP. No authenticated-session replay, custom headers, request body, query/fragment, redirect following, browser DOM/network capture, HAR import or raw packet store.
+- Native collector limits: four concurrent captures; two requests/second per logical host/port; timeout up to 15 seconds; response headers up to 32 KiB; explicit body preview up to 8192 bytes. These are collector limits, not a universal rate limit covering every legacy MCP/adaptor action.
+- Headers are allowlisted; Set-Cookie and arbitrary application headers are discarded. Bodies are omitted by default and only eligible text previews may be retained. Secret filtering is heuristic: custom secrets, URL path identifiers and PII can survive. `redacted: true` means filtering was applied, not guaranteed absence of sensitive data.
+- SHA-256 validates the stored redacted representation, not raw-wire authenticity or the honesty of a compromised worker. SQLite is not encrypted by this application; backups/exports need independent protection.
+- Automatic retests cover supported `missing:<security-header>` findings from the original completed HTTP endpoint only. They preserve scheme, port, path and method. Non-2xx responses and HSTS over plaintext are inconclusive. Header presence does not establish its effectiveness. Other findings require manual review. Original analyst verdicts are never auto-updated.
 
-## 5. Secret Scrubbing Is Pattern-Based
+## Script isolation and deployment
 
-- `gateway/llm_proxy.py` strips common credentials (PEM keys, Bearer tokens, JWTs, `sk-*`, AWS keys, GitHub tokens, and `password=/api_key=/token=` assignments) before calling an upstream LLM.
-- Custom or unformatted secrets (e.g., an internal passphrase embedded inside prose) may evade regex scrubbing. Operators MUST never paste credentials, session cookies, or customer PII into script objectives, and air-gapped Red Team deployments SHOULD pair RedGate with a self-hosted LLM (`Ollama` / `vLLM`) inside the internal enclave.
+- Static analysis cannot prove arbitrary scripts safe. Timeouts, prlimit, environment scrubbing, digest verification and process-group cleanup are defense in depth—not an OS sandbox, VM, filesystem jail or network namespace.
+- The runner only renders proposed IPv4 firewall commands; it does not apply them or prove IPv6/default-deny enforcement. `REDGATE_ENFORCE_IPTABLES=true` is unsupported and refuses script execution rather than falsely claiming protection. Use an independently verified external firewall and stronger per-job containment for hostile code.
+- Compose provides non-root/read-only service containers, not per-script isolation. Jobs within a runner share a UID and persistent tool caches; a hostile adapter could interfere with that state. Avoid multi-tenant hostile workloads. Native evidence invokes no user-supplied code.
+- `lite` omits Go/Node adapters and their validators. `full` includes all four languages but first-use Go compilation under finite memory/time may fail closed until caches are warm. The evidence-only runner target refuses scripts regardless of installed base utilities.
+- PostgreSQL's optional Compose profile is provisioning only: the application still uses SQLite. There is no supported PostgreSQL driver, automatic database conversion or multi-node deployment.
+- No Docker daemon was available in the implementation sandbox. [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) subsequently passed full/lite build/startup/readiness/capability checks and built the evidence-only target. Intended-host resource enforcement, in-container script/collector behavior, image-size comparisons, performance benchmarks and real external inference still require separate validation. CI/local test timings are not production capacity or speedup measurements.
 
-## 6. Local Open-Weight Models, Quantization & Where Human Judgment Is Irreplaceable
+## Local models and human judgment
 
-- **Custom / Open-Weight Local Models**: RedGate v2 allows running quantized GGUF models from Hugging Face locally via **Ollama** or **LM Studio** (100% offline, private, and free of API charges), including domain-tuned `Modelfile` profiles that avoid false refusals on legitimate security terminology. **However, no local model is ever trusted**: RedGate's deterministic allowlists, non-exploitation policy guards, static validators, Two-Person approval queue, and Go sandbox apply identically to every model (`bypass_policy_for_local_models: false`).
-- **Quantization Trade-Offs**: Lower bit-widths (`Q3_K_M`, `Q4_K_M`) enable 7B–32B models on ordinary hardware, but slightly increase subtle syntax or reasoning slips compared to `Q6_K`/`Q8_0`/`FP16`. RedGate mitigates this through compiler/linter validation and optional MCP + Go Sandbox dual-verification (`skills/polyglot_sandbox_verify.yaml`).
-- **Irreplaceable Human Judgment**: Automated recon and AI triage can inspect observable surface posture (subdomains, DNS, open ports, HTTP headers, TLS hygiene), **never** business-logic flaws, object-level authorization (IDOR/BOLA), multi-step authentication workflows, asset criticality, or upstream CDN/WAF compensating controls. Every finding tagged `requires_human_judgment: true` MUST be manually verified by a qualified operator before inclusion in an engagement deliverable.
-- **Bounded Agent Loop**: Unlike unconstrained autonomous agents, RedGate's `PersonalizedReconAgent` is strictly capped (`max_steps <= 6`), executes only low-risk read-only tools plus validated sandbox checks, and halts at `approval_queue` for any medium/high-risk action.
-- **Legal Authorization**: Technical allowlists do not replace signed written Rules of Engagement (RoE). Administrators are solely responsible for ensuring every entry in `config/allowlist.yaml` and the `allowlist` table has active legal authorization.
+Offline inference requires previously downloaded model weights, correct model licenses and an actually local endpoint. Download/setup initially needs network access and storage. Local compute is not cost-free, quantization sizing is an estimate, and remote inference/proxies can send prompts off-host.
+
+Model output, summaries, confidence and dual verification can be wrong or affected by prompt injection. They do not replace analyst assessment of authorization/business logic, IDOR/BOLA, compensating controls, asset criticality, privacy or impact. A model cannot enlarge scope, bypass policy or approve its own work.

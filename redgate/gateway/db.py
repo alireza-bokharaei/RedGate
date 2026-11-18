@@ -296,9 +296,48 @@ class Database:
         finally:
             conn.close()
 
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Serialize a short read-modify-write transaction across gateway subsystems."""
+        with self._write_lock, self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE")
+            try:
+                yield conn
+                conn.execute("COMMIT")
+            except BaseException:
+                conn.execute("ROLLBACK")
+                raise
+
     def _init_schema(self) -> None:
         with self._write_lock, self.connection() as conn:
             conn.executescript(SCHEMA_SQL)
+            conn.execute(
+                "CREATE TABLE IF NOT EXISTS schema_migrations "
+                "(name TEXT PRIMARY KEY, sha256 TEXT NOT NULL, applied_at TEXT NOT NULL)"
+            )
+            for path in sorted((Path(__file__).parent / "migrations").glob("*.sql")):
+                script = path.read_text(encoding="utf-8")
+                digest = hashlib.sha256(script.encode("utf-8")).hexdigest()
+                row = conn.execute(
+                    "SELECT sha256 FROM schema_migrations WHERE name = ?", (path.name,)
+                ).fetchone()
+                if row:
+                    if row["sha256"] != digest:
+                        raise RuntimeError(f"Applied migration was modified: {path.name}")
+                    continue
+                # executescript does not honor an outer Python transaction. Its
+                # BEGIN/COMMIT must be inside the script, including the ledger row.
+                name = path.name.replace("'", "''")
+                try:
+                    conn.executescript(
+                        "BEGIN IMMEDIATE;\n" + script + "\n"
+                        "INSERT INTO schema_migrations(name, sha256, applied_at) "
+                        f"VALUES ('{name}', '{digest}', '{utc_now_iso()}');\nCOMMIT;"
+                    )
+                except BaseException:
+                    if conn.in_transaction:
+                        conn.execute("ROLLBACK")
+                    raise
 
     # ------------------------------------------------------------------
     # Seeding & Policy Management
@@ -1393,6 +1432,12 @@ class Database:
             d["summary_stats"] = json.loads(d["summary_stats_json"])
             out.append(d)
         return out
+
+    def get_finding(self, finding_id: int) -> dict[str, Any] | None:
+        """Look up a finding without mutating it (authorize before any write)."""
+        with self.connection() as conn:
+            row = conn.execute("SELECT * FROM recon_findings WHERE id = ?", (finding_id,)).fetchone()
+        return self._hydrate_finding(row) if row else None
 
     def review_finding(
         self,

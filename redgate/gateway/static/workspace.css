@@ -1,0 +1,84 @@
+/* 2.1 workspace: native controls, local fonts, no runtime CSS/JS framework. */
+[hidden] { display: none !important; }
+button:disabled { opacity: .42; cursor: not-allowed; }
+button:focus-visible, summary:focus-visible, .graph-node:focus-visible { outline: 2px solid var(--cyan); outline-offset: 4px; }
+.ws-new { margin-left: auto; font: 10px var(--mono); color: #fca5a5; border: 1px solid #7f3038; padding: 1px 5px; border-radius: 4px; }
+.ws-heading { padding: 8px 0 5px; }
+.ws-heading h1 { font-size: clamp(23px, 2.1vw, 30px); letter-spacing: -.7px; margin: 4px 0 7px; }
+.ws-eyebrow { color: var(--muted); font: 10px var(--mono); letter-spacing: 1.7px; margin-bottom: 7px; overflow-wrap: anywhere; }
+.ws-subtle, .ws-footnote { color: var(--muted); font-size: 12px; line-height: 1.65; }
+.ws-kpis .kpi-card { background: linear-gradient(135deg, #141d2c, var(--surface)); }
+.ws-kpis .kpi-label { font-size: 10px; letter-spacing: 1px; }
+.ws-kpis .kpi-value { font-size: 29px; font-weight: 500; }
+.ws-plan { margin-bottom: 18px; }
+.ws-plan summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.ws-plan form { padding-top: 20px; }
+.ws-http-fields { display: grid; grid-template-columns: .8fr .65fr 1.6fr .8fr 1fr; gap: 12px; }
+.ws-board { display: grid; grid-template-columns: minmax(205px, 260px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ws-mission-rail { position: sticky; top: 16px; padding: 15px; }
+.ws-mission-list { display: flex; flex-direction: column; gap: 7px; max-height: 660px; overflow-y: auto; }
+.ws-mission { width: 100%; border: 1px solid transparent; background: var(--bg); color: var(--text); text-align: left; border-radius: 7px; padding: 12px; cursor: pointer; }
+.ws-mission:hover { border-color: var(--border); }
+.ws-mission[aria-current="true"] { border-color: #8b3b46; background: #261923; }
+.ws-mission strong { display: block; font-size: 12px; margin-bottom: 5px; overflow-wrap: anywhere; }
+.ws-mission small { display: block; color: var(--muted); font: 10px var(--mono); margin-top: 9px; }
+.ws-mission .tag { font-size: 9px; }
+.ws-detail-stack { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.ws-section-head { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-bottom: 9px; }
+.ws-section-head h2 { font-size: 14px; font-weight: 600; margin: 0; letter-spacing: -.1px; }
+.ws-section-head p { margin: 5px 0 0; }
+.ws-controls { margin: 17px 0; }
+.ws-controls-spacer { flex: 1; }
+.ws-empty { color: var(--muted); font-size: 12px; text-align: center; padding: 25px 10px; line-height: 1.8; }
+.ws-graph-card { min-height: 300px; }
+.ws-graph-empty { padding: 58px 10px; color: #b6c4d9; }
+.ws-segment { display: flex; gap: 3px; background: var(--bg); padding: 3px; border: 1px solid var(--border); border-radius: 6px; }
+.ws-segment button { border: 0; background: transparent; color: var(--muted); cursor: pointer; font: 11px var(--sans); padding: 5px 11px; border-radius: 4px; }
+.ws-segment button.active { background: var(--surface-2); color: #f8fafc; }
+.ws-legend { display: flex; align-items: center; flex-wrap: wrap; gap: 15px; padding: 9px 0; color: var(--muted); font-size: 10px; }
+.ws-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.ws-dot { height: 5px; width: 5px; border-radius: 50%; display: inline-block; }
+.ws-green { background: #34d399; }.ws-gray { background: #64748b; }.ws-amber { background: #fbbf24; }
+.ws-graph-scroll { max-height: 430px; overflow: auto; background: radial-gradient(circle, #233047 1px, transparent 1px); background-size: 20px 20px; border-radius: 7px; }
+#wsGraph { width: 100%; min-width: 750px; height: auto; display: block; }
+.graph-edge { fill: none; stroke: #344155; stroke-width: 1.5; }
+.graph-node { cursor: pointer; }
+.graph-node:hover rect, .graph-node:focus rect { fill: #1e2b40; stroke-width: 2; }
+.graph-label { fill: #e6edf7; font: 11px var(--mono); }
+.graph-meta { fill: #93a4bf; font: 9px var(--mono); }
+.ws-bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.ws-evidence-list, .ws-findings-list { display: flex; flex-direction: column; gap: 8px; max-height: 335px; overflow-y: auto; }
+.ws-evidence-row, .ws-finding-row { border: 1px solid var(--border); background: var(--bg); border-radius: 7px; padding: 11px 12px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ws-evidence-row { cursor: pointer; color: var(--text); width: 100%; text-align: left; }
+.ws-evidence-row:hover { border-color: #3b6c85; }
+.ws-row-body { min-width: 0; flex: 1; }
+.ws-row-title { font-size: 11px; overflow-wrap: anywhere; }
+.ws-row-meta { color: var(--muted); font: 10px var(--mono); margin-top: 4px; overflow-wrap: anywhere; }
+.ws-finding-row .btn { flex-shrink: 0; }
+.ws-http-code { color: #67e8c0; font: 11px var(--mono); padding: 6px 8px; border: 1px solid #1e5c50; border-radius: 4px; }
+#wsInspector { min-height: 110px; max-height: 350px; overflow: auto; margin-bottom: 0; }
+.ws-footnote { font-size: 10px; text-align: center; margin-top: 20px; }
+.tag-running, .tag-intact, .tag-tested { background: #12342c; color: #6ee7b7; }
+.tag-draft, .tag-paused, .tag-untested, .tag-cancelled { background: #232c3c; color: #b0c0d7; }
+.tag-pausing, .tag-cancelling, .tag-budget_exhausted { background: #423016; color: #fcd34d; }
+@media (max-width: 1200px) {
+  .ws-board { grid-template-columns: 210px minmax(0, 1fr); }
+  .ws-http-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  .topbar { padding: 12px 14px; }
+  .session-controls { width: 100%; min-width: 0; }
+  .ctrl-group { min-width: 0; max-width: 100%; }
+  .ctrl-group:first-child { flex: 1 1 100%; }
+  .ctrl-group select { max-width: 100%; }
+  .main-content { padding: 18px 14px; min-width: 0; }
+  .ws-plan .two-col { grid-template-columns: 1fr; }
+  .ws-board, .ws-bottom-grid { grid-template-columns: 1fr; }
+  .ws-mission-rail { position: static; }
+  .ws-mission-list { max-height: 220px; }
+  .ws-http-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ws-kpis .kpi-value { font-size: 23px; }
+  .ws-controls-spacer { display: none; }
+  .ws-plan summary .ws-subtle { display: block; margin-top: 4px; }
+}

@@ -1,19 +1,21 @@
-# =============================================================================
-# RedGate — Isolated Multi-Layer Deployment (Docker Compose)
-# Quickstart on server/VM:
-#   1. ./scripts/bootstrap_env.sh
-#   2. docker compose up -d --build
-# =============================================================================
-
+# RedGate 2.1.0 — single-process governance, internal tools, bounded Go runner.
+# ./scripts/bootstrap_env.sh && ./scripts/redgate.sh up
+# REDGATE_IMAGE_FLAVOR=lite ./scripts/redgate.sh up  (no Go/JS adapters)
 services:
   gateway:
+    image: redgate/gateway:${REDGATE_VERSION:-2.1.0}-${REDGATE_IMAGE_FLAVOR:-full}
     build:
       context: .
       dockerfile: gateway/Dockerfile
-    container_name: redgate-gateway
+      target: ${REDGATE_IMAGE_FLAVOR:-full}
+      args:
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.1.0}
+    init: true
     restart: unless-stopped
+    stop_grace_period: 35s
     ports:
-      # Change to "0.0.0.0:8000:8000" only inside an isolated lab VLAN / behind TLS reverse proxy
+      # For a browser preview, set REDGATE_BIND_ADDR=0.0.0.0 explicitly.
+      # In production use TLS + network access control in front of this port.
       - "${REDGATE_BIND_ADDR:-127.0.0.1}:8000:8000"
     environment:
       REDGATE_DB_PATH: /app/data/redgate.db
@@ -26,41 +28,46 @@ services:
       REDGATE_TOKEN_HASH_LEAD_SARA: ${REDGATE_TOKEN_HASH_LEAD_SARA:?Run ./scripts/bootstrap_env.sh first}
       REDGATE_TOKEN_HASH_ADMIN_KAVEH: ${REDGATE_TOKEN_HASH_ADMIN_KAVEH:?Run ./scripts/bootstrap_env.sh first}
       REDGATE_LLM_MODE: ${REDGATE_LLM_MODE:-mock}
-      REDGATE_LLM_BASE_URL: ${REDGATE_LLM_BASE_URL:-http://llm-proxy.internal:11434/v1}
+      REDGATE_LLM_BASE_URL: ${REDGATE_LLM_BASE_URL:-http://ollama:11434/v1}
       REDGATE_LLM_MODEL: ${REDGATE_LLM_MODEL:-qwen2.5-coder:14b}
-      REDGATE_LLM_API_KEY: ${REDGATE_LLM_API_KEY:-}
       REDGATE_LLM_API_KEY_FILE: /run/secrets/llm_api_key
-      REDGATE_STRICT_DNS_RESOLVE: ${REDGATE_STRICT_DNS_RESOLVE:-false}
+      REDGATE_STRICT_DNS_RESOLVE: ${REDGATE_STRICT_DNS_RESOLVE:-true}
       REDGATE_DEMO_MODE: "false"
     volumes:
       - ./config:/app/config:ro
       - ./skills:/app/skills:ro
       - redgate_data:/app/data
-      - ./secrets/llm_api_key:/run/secrets/llm_api_key:ro
+      # Mount the DIRECTORY so atomic secret rotation becomes visible immediately.
+      - ./secrets:/run/secrets:ro
+    group_add:
+      # Bootstrap writes 0750/0640 on the host; only this host group can read keys.
+      - "${REDGATE_SECRETS_GID:-10000}"
+    read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,uid=10000,gid=10000,size=128m
       - /tmp/sandbox:rw,nosuid,nodev,uid=10000,gid=10000,size=256m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     mem_limit: 768m
     cpus: "1.5"
     pids_limit: 192
     depends_on:
-      - mcp-server
-      - sandbox-runner
-    networks:
-      - control_net
-      - llm_egress_net
+      mcp-server:
+        condition: service_healthy
+      sandbox-runner:
+        condition: service_healthy
+    networks: [control_net, llm_egress_net]
 
   mcp-server:
+    image: redgate/mcp-server:${REDGATE_VERSION:-2.1.0}
     build:
       context: .
       dockerfile: mcp_server/Dockerfile
-    container_name: redgate-mcp-server
+      args:
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.1.0}
+    init: true
     restart: unless-stopped
-    # NO host ports published — reachable exclusively from gateway over control_net
+    # No published port: this authenticated tool bridge is internal only.
     environment:
       REDGATE_INTERNAL_TOKEN: ${REDGATE_INTERNAL_TOKEN:?Run ./scripts/bootstrap_env.sh first}
       REDGATE_MCP_MAX_CONCURRENT: "4"
@@ -68,98 +75,81 @@ services:
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,noexec,uid=10002,gid=10002,size=32m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     mem_limit: 256m
     cpus: "0.75"
     pids_limit: 64
-    networks:
-      - control_net
-      - target_egress_net
+    networks: [control_net, target_egress_net]
 
   sandbox-runner:
+    image: redgate/sandbox-runner:${REDGATE_VERSION:-2.1.0}-${REDGATE_IMAGE_FLAVOR:-full}
     build:
       context: .
       dockerfile: sandbox_runner/Dockerfile
-    container_name: redgate-sandbox-runner
+      target: ${REDGATE_IMAGE_FLAVOR:-full}
+      args:
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.1.0}
+    init: true
     restart: unless-stopped
-    # NEVER uses host network or host filesystem (Core Compliance Requirement)
+    stop_grace_period: 15s
+    # No host network, Docker socket, host filesystem or published port.
     environment:
       REDGATE_INTERNAL_TOKEN: ${REDGATE_INTERNAL_TOKEN:?Run ./scripts/bootstrap_env.sh first}
       REDGATE_SANDBOX_ADDR: "0.0.0.0:8002"
-      REDGATE_SANDBOX_ROOT: "/tmp/sandbox"
+      REDGATE_SANDBOX_ROOT: /tmp/sandbox
       REDGATE_ENFORCE_IPTABLES: "false"
     read_only: true
     tmpfs:
-      # Only /tmp/sandbox is writable; exec is needed inside /tmp/sandbox for compiled Go binaries
+      # exec is needed only for compiled Go adapters; evidence never invokes them.
       - /tmp/sandbox:rw,exec,nosuid,nodev,uid=10001,gid=10001,size=256m
-    cap_drop:
-      - ALL
-    security_opt:
-      - no-new-privileges:true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
     mem_limit: 512m
     memswap_limit: 512m
     cpus: "1.0"
     pids_limit: 96
-    networks:
-      - control_net
-      - target_egress_net
+    networks: [control_net, target_egress_net]
 
-  # Optional PostgreSQL 16 upgrade (`docker compose --profile postgres up -d`).
-  # Default deployment uses SQLite WAL with append-only triggers in `redgate_data`.
+  # Provisioning experiment ONLY. RedGate currently has a SQLite backend; this
+  # profile does not switch it to PostgreSQL. A password must be supplied to use it.
   db:
     image: postgres:16-alpine
-    container_name: redgate-db
-    profiles: ["postgres"]
+    profiles: [postgres]
     restart: unless-stopped
     environment:
       POSTGRES_DB: redgate
       POSTGRES_USER: ${POSTGRES_USER:-redgate_app}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme_in_env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
     volumes:
       - redgate_pgdata:/var/lib/postgresql/data
     read_only: true
     tmpfs:
       - /tmp:rw,nosuid,nodev,size=32m
       - /var/run/postgresql:rw,nosuid,nodev,size=16m
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-      - DAC_OVERRIDE
-      - FOWNER
-    security_opt:
-      - no-new-privileges:true
-    networks:
-      - control_net
+    cap_drop: [ALL]
+    cap_add: [CHOWN, SETGID, SETUID, DAC_OVERRIDE, FOWNER]
+    security_opt: ["no-new-privileges:true"]
+    networks: [control_net]
 
-  # Optional self-hosted local Ollama inference container (`docker compose --profile ollama up -d`)
-  # Pull any quantized Hugging Face GGUF inside the container:
-  #   docker exec -it redgate-ollama ollama pull hf.co/Qwen/Qwen2.5-Coder-14B-Instruct-GGUF:Q4_K_M
+  # Optional local inference; pin the image to an approved digest in production.
   ollama:
-    image: ollama/ollama:latest
-    container_name: redgate-ollama
-    profiles: ["ollama"]
+    image: ${REDGATE_OLLAMA_IMAGE:-ollama/ollama:latest}
+    profiles: [ollama]
     restart: unless-stopped
     volumes:
       - redgate_ollama_models:/root/.ollama
       - ./config/Modelfile.redgate:/etc/redgate/Modelfile.redgate:ro
-    networks:
-      - llm_egress_net
+    networks: [llm_egress_net]
 
 networks:
-  # East-west service mesh: strictly internal (no internet/LAN routing)
   control_net:
     driver: bridge
     internal: true
-  # Constrained egress segment for scoped targets (attach host firewall/nftables rules)
+  # A network name is NOT an egress firewall. Deploy an external default-deny
+  # policy for signed destinations before allowing any untrusted script jobs.
   target_egress_net:
     driver: bridge
-  # Dedicated segment to reach internal Ollama/LM Studio/vLLM gateway
   llm_egress_net:
     driver: bridge
 

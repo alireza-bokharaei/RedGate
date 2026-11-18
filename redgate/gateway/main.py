@@ -11,8 +11,10 @@ Orchestrates:
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -21,6 +23,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException, Query, Response, st
 from fastapi.responses import FileResponse, JSONResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
+from gateway import __version__
 from gateway.agent import PersonalizedReconAgent
 from gateway.auth import AuthManager, OperatorPrincipal
 from gateway.config_loader import PlatformConfig, load_platform_config, seed_database_from_config
@@ -28,6 +31,7 @@ from gateway.db import Database, utc_now_iso
 from gateway.llm_proxy import LLMProxyError, LLMProxyGateway
 from gateway.mcp_client import MCPBridgeClient, MCPClientError
 from gateway.memory import AgentMemoryEngine
+from gateway.missions import MissionService
 from gateway.model_hub import (
     LocalModelHub,
     validate_llm_endpoint_url,
@@ -54,6 +58,7 @@ from gateway.policy import ScopePolicyEngine, validate_allowlist_entry_syntax
 from gateway.sandbox_client import GoSandboxClient, SandboxClientError
 from gateway.skills import SkillValidationError, validate_skill_spec
 from gateway.validators import ScriptValidationOrchestrator
+from gateway.workspace_api import workspace_router
 from mcp_server.tools import ToolParamValidationError, validate_tool_params
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -138,17 +143,38 @@ def build_runtime() -> GatewayRuntime:
 def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
     """Create and wire the FastAPI Gateway application."""
     rt = runtime or build_runtime()
+    workspace = MissionService(db=rt.db, auth=rt.auth, scope=rt.scope, agent=rt.agent, sandbox=rt.sandbox)
+
+    @asynccontextmanager
+    async def lifespan(_application: FastAPI):
+        workspace.recover()
+        try:
+            yield
+        finally:
+            await workspace.close()
 
     application = FastAPI(
-        title="RedGate v2 — Personalized Local-AI Security Testing & Recon Platform",
+        title="RedGate 2.1 — Auditable Mission & Evidence Workspace",
         description=(
             "Policy-controlled security verification & automated recon platform with Local LLM Hub "
             "(Ollama / LM Studio / Hugging Face GGUF Quantization), Operator Skills & Memory, "
             "MCP tools, 4-language static validation, Go sandbox, and SHA-256 hash-chained audit logs."
         ),
-        version="2.0.0",
+        version=__version__,
+        lifespan=lifespan,
     )
     application.state.rt = rt
+    application.state.workspace = workspace
+
+    @application.middleware("http")
+    async def private_api_responses(request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/api/"):
+            # Evidence, engagement data and demo credentials must not survive in
+            # a shared browser/proxy cache when the operator changes identities.
+            response.headers["Cache-Control"] = "no-store"
+            response.headers.append("Vary", "Authorization")
+        return response
 
     def get_principal(authorization: str | None = Header(default=None)) -> OperatorPrincipal:
         principal = rt.auth.authenticate(authorization)
@@ -364,6 +390,18 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
     # System Health, Benign Self-Test Probe, and Local Lab Helper
     # ------------------------------------------------------------------
 
+    @application.get("/healthz", include_in_schema=False)
+    async def liveness() -> dict[str, str]:
+        # Cheap liveness; do not walk the entire audit ledger every 30 seconds.
+        return {"status": "ok", "version": __version__}
+
+    @application.get("/readyz", include_in_schema=False)
+    async def readiness() -> JSONResponse:
+        mcp, sandbox = await asyncio.gather(rt.mcp.health(), rt.sandbox.health())
+        ready = mcp.get("status") == "ok" and sandbox.get("status") == "ok"
+        return JSONResponse({"status": "ready" if ready else "degraded", "version": __version__},
+                            status_code=200 if ready else 503)
+
     @application.get("/api/v1/health")
     async def health() -> dict[str, Any]:
         mcp_health = await rt.mcp.health()
@@ -372,6 +410,8 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
         return {
             "status": "ok",
             "gateway": "online",
+            "version": __version__,
+            "features": {"missions": True, "asset_graph": True, "http_evidence": True, "header_retests": True},
             "gateway_port": int(os.environ.get("REDGATE_GATEWAY_PORT", "8000")),
             "mcp_server": mcp_health,
             "sandbox_runner": sb_health,
@@ -385,7 +425,8 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
             "demo_mode": os.environ.get("REDGATE_DEMO_MODE", "false").lower() == "true",
         }
 
-    @application.api_route("/probe/headers", methods=["GET", "HEAD"])
+    @application.get("/probe/headers")
+    @application.head("/probe/headers", include_in_schema=False)
     async def local_probe_endpoint(response: Response) -> dict[str, str]:
         """Benign local endpoint used strictly for ENG-LOCAL-LAB verification tests.
 
@@ -1569,6 +1610,11 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
         req: FindingReviewRequest,
         principal: OperatorPrincipal = Depends(get_principal),
     ) -> dict[str, Any]:
+        existing = rt.db.get_finding(finding_id)
+        if not existing:
+            raise HTTPException(status_code=404, detail=f"Finding #{finding_id} not found.")
+        # Authorize BEFORE modifying the verdict or teaching operator memory.
+        ensure_engagement_access(principal, str(existing["engagement_id"]))
         updated = rt.db.review_finding(
             finding_id=finding_id,
             verdict=req.verdict,
@@ -1605,6 +1651,8 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
             status="completed",
         )
         return {"finding": updated, "learned_memory": learned_memory}
+
+    application.include_router(workspace_router(workspace, get_principal, ensure_engagement_access))
 
     # ------------------------------------------------------------------
     # Optional Web Management Console (Static Assets)

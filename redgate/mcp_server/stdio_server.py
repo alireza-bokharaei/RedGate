@@ -17,6 +17,7 @@ from typing import Any
 
 import yaml
 
+from mcp_server import __version__
 from mcp_server.executor import MCPToolExecutor
 from mcp_server.tools import MCP_TOOL_CATALOG, ToolParamValidationError
 
@@ -173,7 +174,7 @@ async def handle_rpc(msg: dict[str, Any]) -> dict[str, Any] | None:
             "result": {
                 "protocolVersion": MCP_PROTOCOL_VERSION,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "redgate-mcp-server", "version": "2.0.0"},
+                "serverInfo": {"name": "redgate-mcp-server", "version": __version__},
             },
         }
     if method == "ping":

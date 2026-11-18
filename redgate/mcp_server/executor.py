@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime as dt
+import ipaddress
 import json
 import shutil
 import socket
@@ -154,21 +155,34 @@ class MCPToolExecutor:
         path = params["path"]
 
         default_port = 443 if scheme == "https" else 80
-        host_part = target if port == default_port else f"{target}:{port}"
+        host_literal = f"[{target}]" if ":" in target else target
+        host_part = host_literal if port == default_port else f"{host_literal}:{port}"
         url = f"{scheme}://{host_part}{path}"
-
+        pins = list(pinned_ips)
+        if not pins:
+            try:
+                pins = [str(ipaddress.ip_address(target))]
+            except ValueError as exc:
+                raise ToolParamValidationError("HTTP requests require a gateway-resolved DNS pin.") from exc
+        pin = str(ipaddress.ip_address(pins[0]))
+        # Dial the pin, but retain the original HTTP Host and TLS SNI/certificate
+        # name. Passing pins in a JSON report alone does not prevent rebinding.
+        connect_url = httpx.URL(url).copy_with(host=pin)
         req_timeout = min(float(timeout_sec), 15.0)
         async with httpx.AsyncClient(
-            follow_redirects=False,
-            timeout=req_timeout,
-            verify=True,
-            headers={"User-Agent": "RedGate-PolicyScanner/1.0 (Authorized Security Audit)"},
+            follow_redirects=False, trust_env=False,
+            timeout=req_timeout, verify=True,
+            headers={"User-Agent": "RedGate-PolicyScanner/2.1 (Authorized Security Audit)"},
         ) as client:
-            resp = await client.request(method, url)
+            # Header inspection must not buffer an unbounded response body.
+            async with client.stream(method, connect_url, headers={"Host": host_part},
+                                     extensions={"sni_hostname": target}) as resp:
+                response_status = resp.status_code
+                response_headers = dict(resp.headers)
 
         present: dict[str, str] = {}
         missing: list[str] = []
-        lower_headers = {k.lower(): v for k, v in resp.headers.items()}
+        lower_headers = {k.lower(): v for k, v in response_headers.items()}
         for hdr in SECURITY_HEADERS_OF_INTEREST:
             if hdr in lower_headers:
                 present[hdr] = lower_headers[hdr]
@@ -178,8 +192,9 @@ class MCPToolExecutor:
         report = {
             "url": url,
             "method": method,
-            "pinned_ips": pinned_ips,
-            "status_code": resp.status_code,
+            "pinned_ips": pins,
+            "connected_ip": pin,
+            "status_code": response_status,
             "present_security_headers": present,
             "missing_recommended_headers": missing,
         }

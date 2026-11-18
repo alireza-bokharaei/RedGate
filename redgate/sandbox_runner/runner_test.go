@@ -45,9 +45,9 @@ func TestMultiLanguageExecution(t *testing.T) {
 			expected: "js-sha=",
 		},
 		{
-			name:   "go",
-			lang:   "go",
-			script: "package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"go-sandbox-ok\") }\n",
+			name:     "go",
+			lang:     "go",
+			script:   "package main\nimport \"fmt\"\nfunc main() { fmt.Println(\"go-sandbox-ok\") }\n",
 			expected: "go-sandbox-ok",
 		},
 	}

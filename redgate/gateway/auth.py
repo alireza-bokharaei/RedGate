@@ -85,8 +85,16 @@ class AuthManager:
                 allowed_engagements=tuple(entry.get("allowed_engagements", [])),
             )
             self._by_id[principal.operator_id] = principal
-            if len(token_hash) == 64:
+            if len(token_hash) == 64 and all(c in "0123456789abcdef" for c in token_hash):
                 self._principals.append((token_hash, principal))
+
+    def get_operator(self, operator_id: str) -> OperatorPrincipal | None:
+        """Resolve an enabled execution owner, never a caller-supplied role.
+
+        An identity without a configured token digest is not eligible to execute
+        a previously saved mission after a restart/credential revocation.
+        """
+        return next((p for _, p in self._principals if p.operator_id == operator_id), None)
 
     def authenticate(self, authorization_header: str | None) -> OperatorPrincipal:
         """Validate `Authorization: Bearer <token>` using constant-time SHA-256 comparison."""

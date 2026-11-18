@@ -33,13 +33,15 @@ func BuildEgressPolicy(candidates []string, enforceIptables bool) (*EgressPolicy
 		}
 	}
 
+	// Rendering rules is not enforcement. Never claim an installed firewall or
+	// silently satisfy a caller who explicitly requires in-process enforcement.
+	if enforceIptables {
+		return nil, fmt.Errorf("in-process iptables enforcement is unsupported; configure an external default-deny firewall (no rules were installed)")
+	}
 	policy := &EgressPolicy{
 		AllowedIPs:   []string{},
 		AllowedCIDRs: []string{},
-		Mode:         "pinned_allowlist",
-	}
-	if enforceIptables {
-		policy.Mode = "iptables_enforced"
+		Mode:         "policy_validated_only",
 	}
 
 	seen := make(map[string]struct{})

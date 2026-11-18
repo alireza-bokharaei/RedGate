@@ -21,12 +21,31 @@ class GoSandboxClient:
 
     async def health(self) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}/health")
                 resp.raise_for_status()
                 return resp.json()
         except Exception as exc:  # noqa: BLE001
             return {"status": "unreachable", "error": str(exc)}
+
+    async def capture_http(
+        self, *, target: str, pinned_ips: list[str], scheme: str, port: int,
+        path: str, method: str, timeout_sec: int = 10, max_body_bytes: int = 0,
+    ) -> dict[str, Any]:
+        """Invoke the fixed read-only Go collector, never an unvalidated script."""
+        try:
+            async with httpx.AsyncClient(timeout=float(timeout_sec + 3), trust_env=False) as client:
+                response = await client.post(
+                    f"{self.base_url}/http-evidence",
+                    headers={"X-Internal-Service-Token": self._internal_token},
+                    json={"target": target, "pinned_ips": pinned_ips, "scheme": scheme,
+                          "port": port, "path": path, "method": method,
+                          "timeout_sec": timeout_sec, "max_body_bytes": max_body_bytes},
+                )
+            response.raise_for_status()
+            return dict(response.json())
+        except (httpx.HTTPError, ValueError, TypeError) as exc:
+            raise SandboxClientError("Go HTTP evidence collector is unavailable or refused the request.") from exc
 
     async def execute_script(
         self,
@@ -54,7 +73,7 @@ class GoSandboxClient:
             "max_output_bytes": max_output_bytes,
         }
         try:
-            async with httpx.AsyncClient(timeout=float(timeout_sec + 25)) as client:
+            async with httpx.AsyncClient(timeout=float(timeout_sec + 25), trust_env=False) as client:
                 resp = await client.post(
                     f"{self.base_url}/execute",
                     headers={"X-Internal-Service-Token": self._internal_token},

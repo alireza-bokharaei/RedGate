@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>RedGate v2 — Personalized Local-AI Recon &amp; Security Testing Console</title>
+  <title>RedGate 2.1.0 — Mission &amp; Evidence Workspace</title>
   <link rel="stylesheet" href="/static/styles.css" />
+  <link rel="stylesheet" href="/static/workspace.css" />
 </head>
 <body>
   <div class="app-shell">
@@ -16,8 +17,8 @@
           <path d="M11 16.2L14.4 19.6L21.5 12.5" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
         <div>
-          <div class="brand-title">RedGate <span class="version-tag">v2.0</span></div>
-          <div class="brand-sub">Local-AI Recon Agent · Skills &amp; Memory · MCP · Go Sandbox</div>
+          <div class="brand-title">RedGate <span class="version-tag">v2.1.0</span></div>
+          <div class="brand-sub">Mission workspace · Evidence · Local AI · Bounded Go runner</div>
         </div>
       </div>
 
@@ -35,7 +36,7 @@
           <select id="engagementSelect" aria-label="Active engagement"></select>
         </label>
         <label class="ctrl-group" id="demoRoleWrap" hidden>
-          <span>Operator Session</span>
+          <span>Lab demo identity</span>
           <select id="roleSelect" aria-label="Operator session"></select>
         </label>
         <button class="btn btn-ghost btn-sm" id="tokenModalBtn" title="Set custom Bearer token">Token</button>
@@ -46,7 +47,10 @@
       <!-- Sidebar Navigation -->
       <aside class="sidebar">
         <nav class="nav-list">
-          <button class="nav-item active" data-tab="overview">
+          <button class="nav-item active" data-tab="workspace">
+            <span class="nav-dot"></span> Mission Workspace <span class="ws-new">2.1</span>
+          </button>
+          <button class="nav-item" data-tab="overview">
             <span class="nav-dot"></span> Overview &amp; Pipeline
           </button>
           <button class="nav-item" data-tab="agent">
@@ -102,8 +106,99 @@
       <main class="main-content">
         <div id="toastBar" class="toast" hidden></div>
 
+        <!-- 2.1: MISSION, ASSET GRAPH, EVIDENCE & RETEST WORKSPACE -->
+        <section class="tab-panel active" id="tab-workspace">
+          <div class="panel-header ws-heading">
+            <div>
+              <div class="ws-eyebrow">REDGATE / ENGAGEMENT OPERATIONS</div>
+              <h1>Mission workspace</h1>
+              <p>Plan a bounded assessment. Follow the evidence. Keep a human in control.</p>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-secondary" id="wsRefresh">Refresh</button>
+              <button class="btn btn-primary" id="wsNewMission">+ Plan mission</button>
+            </div>
+          </div>
+          <div id="wsMessage" class="status-banner" role="status" aria-live="polite" hidden></div>
+          <div class="kpi-grid ws-kpis">
+            <div class="kpi-card"><div class="kpi-label">PLANNED MISSIONS</div><div class="kpi-value" id="wsMissionCount">0</div><div class="kpi-sub">Explicit start · no auto-resume</div></div>
+            <div class="kpi-card"><div class="kpi-label">ASSET COVERAGE</div><div class="kpi-value kpi-emerald" id="wsCoverage">0 / 0</div><div class="kpi-sub">Observed checks / known assets</div></div>
+            <div class="kpi-card"><div class="kpi-label">HTTP EVIDENCE</div><div class="kpi-value kpi-cyan" id="wsEvidenceCount">0</div><div class="kpi-sub">Redacted · checksum anchored in audit</div></div>
+            <div class="kpi-card"><div class="kpi-label">ACTION BUDGET</div><div class="kpi-value kpi-amber" id="wsBudget">—</div><div class="kpi-sub">Failures consume reservations too</div></div>
+          </div>
+
+          <details class="card ws-plan" id="wsPlanPanel">
+            <summary>Plan a read-only mission <span class="ws-subtle">/ no target contact until you press Start</span></summary>
+            <form id="wsPlanForm" class="form-stack">
+              <div class="two-col">
+                <label class="field"><span>Mission name</span><input id="wsName" type="text" minlength="3" maxlength="96" placeholder="External surface baseline" required /></label>
+                <label class="field"><span>Skill playbook</span><select id="wsSkill" required></select></label>
+              </div>
+              <label class="field"><span>Approved hosts / IPs (one per line, up to 8; no URLs)</span><textarea id="wsTargets" rows="2" maxlength="2100" placeholder="app.lab.example" required></textarea></label>
+              <label class="field"><span>Assessment goal</span><input id="wsGoal" type="text" minlength="8" maxlength="1000" value="Read-only HTTP and transport baseline; prioritize evidence for human review." required /></label>
+              <div class="ws-http-fields">
+                <label class="field"><span>Scheme</span><select id="wsScheme"><option value="https">HTTPS</option><option value="http">HTTP</option></select></label>
+                <label class="field"><span>Port</span><input id="wsPort" type="number" value="443" min="1" max="65535" required /></label>
+                <label class="field"><span>Path (no query)</span><input id="wsPath" type="text" value="/" maxlength="128" required /></label>
+                <label class="field"><span>Max actions</span><input id="wsMaxActions" type="number" value="24" min="1" max="64" required /></label>
+                <label class="field"><span>Deadline (seconds)</span><input id="wsMaxSeconds" type="number" value="300" min="10" max="1800" required /></label>
+              </div>
+              <label class="checkbox-row"><input id="wsCapture" type="checkbox" checked /><span>Collect anonymous HEAD evidence after each intent (no cookies, credentials or body).</span></label>
+              <div class="btn-row"><button type="submit" class="btn btn-primary" id="wsPlanSubmit">Save plan</button><span class="ws-subtle">Scope and live policies are checked again before execution.</span></div>
+            </form>
+          </details>
+
+          <div class="ws-board">
+            <aside class="card ws-mission-rail" aria-label="Missions">
+              <div class="card-title">Missions <span class="ws-subtle">/ latest 30</span></div>
+              <div id="wsMissionList" class="ws-mission-list"><div class="ws-empty">Authenticate and plan your first mission. Nothing runs automatically.</div></div>
+            </aside>
+            <div class="ws-detail-stack">
+              <div class="card">
+                <div class="ws-section-head"><div><div class="ws-eyebrow" id="wsMissionId">NO MISSION SELECTED</div><h2 id="wsSelectedName">An auditable path from scope to report</h2></div><span class="tag tag-pending" id="wsStatus">ready to plan</span></div>
+                <p class="ws-subtle" id="wsSelectedGoal">Your completed intents survive restarts. Interrupted work requires explicit approval to resume.</p>
+                <div class="btn-row ws-controls">
+                  <button class="btn btn-primary btn-sm" id="wsStart" disabled>Start mission</button>
+                  <button class="btn btn-secondary btn-sm" id="wsPause" disabled>Pause</button>
+                  <button class="btn btn-ghost btn-sm" id="wsCancel" disabled>Cancel</button>
+                  <span class="ws-controls-spacer"></span>
+                  <button class="btn btn-secondary btn-sm" id="wsReport" disabled>Report .md</button>
+                  <button class="btn btn-ghost btn-sm" id="wsExport" disabled>Export .json</button>
+                </div>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>Target / intent</th><th>State</th><th>Attempts</th><th>Bound run / note</th></tr></thead><tbody id="wsIntents"><tr><td colspan="4" class="ws-subtle">No intents yet.</td></tr></tbody></table></div>
+              </div>
+
+              <div class="card ws-graph-card">
+                <div class="ws-section-head"><div><h2>Two graphs. One traceable assessment.</h2><p class="ws-subtle">Assets show what exists; exploration shows what was checked.</p></div><div class="ws-segment" aria-label="Graph view"><button id="wsAssetMode" class="active" aria-pressed="true">Assets</button><button id="wsExplorationMode" aria-pressed="false">Exploration</button></div></div>
+                <div class="ws-legend"><span><i class="ws-dot ws-green"></i>Observed / completed</span><span><i class="ws-dot ws-gray"></i>Not tested</span><span><i class="ws-dot ws-amber"></i>Finding ≠ exploitability</span></div>
+                <div id="wsGraphEmpty" class="ws-empty ws-graph-empty">Your graph starts with an approved target.<br /><span class="ws-subtle">No demo findings, inferred authorization, or automatic scope expansion.</span></div>
+                <div class="ws-graph-scroll"><svg id="wsGraph" role="group" aria-label="Engagement asset and exploration graph" hidden></svg></div>
+                <p class="ws-subtle" id="wsGraphNote">Select a node to inspect its reference.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="ws-bottom-grid mt-16">
+            <div class="card">
+              <div class="ws-section-head"><h2>Evidence locker</h2><span class="ws-subtle">latest 20</span></div>
+              <p class="ws-subtle">Immutable redacted snapshots, not raw authenticated traffic. No redirects are followed.</p>
+              <div id="wsEvidenceList" class="ws-evidence-list"><div class="ws-empty">No captured evidence yet.</div></div>
+            </div>
+            <div class="card">
+              <div class="ws-section-head"><h2>Finding verification</h2><span class="tag tag-medium">HUMAN REVIEW</span></div>
+              <p class="ws-subtle">Header retests append a fresh observation. They never overwrite the original finding or automatically declare it fixed.</p>
+              <div id="wsFindingList" class="ws-findings-list"><div class="ws-empty">Run a mission to inspect its findings.</div></div>
+            </div>
+          </div>
+          <div class="card mt-16">
+            <div class="ws-section-head"><h2>Reference inspector</h2><button class="btn btn-ghost btn-sm" id="wsEvidenceExport" hidden>Export evidence .json</button></div>
+            <pre class="code-output" id="wsInspector" aria-live="polite">Select graph nodes, evidence, or a retest to inspect the underlying record.</pre>
+          </div>
+          <p class="ws-footnote">Python governance · Go execution &amp; pinned HTTP collection · JavaScript graphs · Bash operations · isolated Docker services</p>
+        </section>
+
         <!-- TAB 1: OVERVIEW -->
-        <section class="tab-panel active" id="tab-overview">
+        <section class="tab-panel" id="tab-overview">
           <div class="panel-header">
             <div>
               <h1>RedGate v2 — Personalized Security Testing &amp; Local-AI Recon Platform</h1>
@@ -743,6 +838,8 @@ os.system("id")</textarea>
     </form>
   </dialog>
 
+  <script src="/static/graph.js"></script>
+  <script src="/static/workspace.js"></script>
   <script src="/static/app.js"></script>
 </body>
 </html>

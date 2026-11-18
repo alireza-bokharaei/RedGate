@@ -1,5 +1,2 @@
-fastapi>=0.115.0
-uvicorn[standard]>=0.30.0
-httpx>=0.27.0
-pyyaml>=6.0.1
-mcp>=1.0.0
+# JSON-RPC/stdio are implemented in-tree; the heavyweight MCP SDK is not used.
+-r ../requirements.txt

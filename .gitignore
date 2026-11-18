@@ -1,0 +1,25 @@
+# Local environments, credentials, and runtime state (never ship engagement data)
+.venv/
+.cache/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+node_modules/
+.env
+.env.*
+!.env.example
+**/data/
+**/secrets/
+**/backups/
+**/bin/
+**/coverage/
+**/test-results/
+*.db
+*.db-shm
+*.db-wal
+*.log
+.DS_Store

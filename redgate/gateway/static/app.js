@@ -15,6 +15,7 @@
     currentReconRun: null,
     demoProfiles: [],
     lastValidatedScriptId: null,
+    refreshEpoch: 0,
   };
 
   const PROVIDER_DEFAULTS = {
@@ -101,14 +102,15 @@
   async function api(path, options = {}) {
     const headers = Object.assign({ "Content-Type": "application/json" }, options.headers || {});
     if (state.token) headers.Authorization = `Bearer ${state.token}`;
-    const resp = await fetch(path, Object.assign({}, options, { headers }));
-    let data = {};
     try {
-      data = await resp.json();
+      const resp = await fetch(path, Object.assign({}, options, { headers }));
+      const text = await resp.text(); // Consume once; Markdown exports are not JSON.
+      let data;
+      try { data = JSON.parse(text); } catch { data = { raw: text }; }
+      return { ok: resp.ok, status: resp.status, data };
     } catch {
-      data = { raw: await resp.text() };
+      return { ok: false, status: 0, data: { detail: "Network request failed. Check the service connection and retry." } };
     }
-    return { ok: resp.ok, status: resp.status, data };
   }
 
   function setPill(id, label, ok) {
@@ -159,11 +161,15 @@
   }
 
   async function refreshSessionAndData() {
+    const epoch = ++state.refreshEpoch, token = state.token;
     await refreshHealth();
-    if (!state.token) return;
+    if (!token || epoch !== state.refreshEpoch || token !== state.token) return;
 
     const meRes = await api("/api/v1/me");
+    if (epoch !== state.refreshEpoch || token !== state.token) return;
     if (!meRes.ok) {
+      state.me = null;
+      window.RedGateWorkspace.reset();
       flashToast("Authentication failed. Provide a valid Bearer token.");
       return;
     }
@@ -195,6 +201,7 @@
       api("/api/v1/models/hub"),
     ]);
 
+    if (epoch !== state.refreshEpoch || token !== state.token) return;
     if (engRes.ok) renderEngagements(engRes.data.engagements || []);
     if (allowRes.ok) {
       state.allowlist = allowRes.data.allowlist || [];
@@ -221,6 +228,7 @@
       state.modelHub = hubRes.data;
       renderModelHub();
     }
+    await window.RedGateWorkspace.refresh();
   }
 
   function renderEngagements(engs) {
@@ -638,6 +646,8 @@
     });
 
     $("engagementSelect").addEventListener("change", async (e) => {
+      window.RedGateWorkspace.reset();
+      state.currentReconRun = null;
       state.engagementId = e.target.value;
       const defaultTarget = state.engagementId === "ENG-LOCAL-LAB" ? "127.0.0.1" : "example.com";
       $("scanTarget").value = defaultTarget;
@@ -655,6 +665,9 @@
     });
 
     $("roleSelect").addEventListener("change", async (e) => {
+      window.RedGateWorkspace.reset();
+      state.currentReconRun = null;
+      state.me = null;
       state.token = e.target.value;
       const prof = state.demoProfiles.find((p) => p.token === state.token);
       if (prof) flashToast(`Switched session to ${prof.label}`);
@@ -672,7 +685,11 @@
       e.preventDefault();
       const val = $("manualTokenInput").value.trim();
       if (val) {
+        window.RedGateWorkspace.reset();
+        state.currentReconRun = null;
+        state.me = null;
         state.token = val;
+        $("manualTokenInput").value = "";
         $("tokenDialog").close();
         await refreshSessionAndData();
       }
@@ -974,7 +991,7 @@
           $("sandboxOutput").textContent =
             `[Go Sandbox Runner] exit_code=${sb.exit_code} duration=${sb.duration_ms}ms egress_mode=${sb.egress_mode}\n\n--- STDOUT ---\n${sb.stdout || "(empty)"}\n` +
             (sb.stderr ? `\n--- STDERR ---\n${sb.stderr}\n` : "") +
-            `\n--- CONTAINER IPTABLES EGRESS RULES ---\n${(sb.egress_rules || []).join("\n")}`;
+            `\n--- PROPOSED IPV4 EGRESS RULES (NOT APPLIED) ---\n${(sb.egress_rules || []).join("\n")}`;
         } else {
           $("sandboxOutput").textContent = "Validated. Click 'Run in Go Sandbox' above.";
         }
@@ -1133,6 +1150,11 @@
   }
 
   async function init() {
+    window.RedGateWorkspace.init({
+      request: api,
+      getContext: () => ({ engagementId: state.engagementId, operatorId: state.me?.operator_id,
+        role: state.me?.role, skills: state.skills }),
+    });
     wireEvents();
     await refreshHealth();
 
