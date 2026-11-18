@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RedGate v2 — Personalized Local-AI Recon &amp; Security Testing Console</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <!-- Top Control Bar -->
+    <header class="topbar">
+      <div class="brand">
+        <svg class="brand-icon" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <path d="M16 2.5L27.5 7.2V15.6C27.5 22.8 22.6 27.6 16 29.8C9.4 27.6 4.5 22.8 4.5 15.6V7.2L16 2.5Z" stroke="#ef4444" stroke-width="2" fill="rgba(239,68,68,0.12)"/>
+          <path d="M11 16.2L14.4 19.6L21.5 12.5" stroke="#f8fafc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div>
+          <div class="brand-title">RedGate <span class="version-tag">v2.0</span></div>
+          <div class="brand-sub">Local-AI Recon Agent · Skills &amp; Memory · MCP · Go Sandbox</div>
+        </div>
+      </div>
+
+      <div class="layer-pills" id="layerPills">
+        <span class="pill pill-neutral" id="pillGateway">L1 Gateway</span>
+        <span class="pill pill-neutral" id="pillMcp">L2 MCP</span>
+        <span class="pill pill-neutral" id="pillSandbox">L3 Go Sandbox</span>
+        <span class="pill pill-neutral" id="pillLlm">Local AI</span>
+        <span class="pill pill-neutral" id="pillChain">Audit Chain</span>
+      </div>
+
+      <div class="session-controls">
+        <label class="ctrl-group">
+          <span>Engagement</span>
+          <select id="engagementSelect" aria-label="Active engagement"></select>
+        </label>
+        <label class="ctrl-group" id="demoRoleWrap" hidden>
+          <span>Operator Session</span>
+          <select id="roleSelect" aria-label="Operator session"></select>
+        </label>
+        <button class="btn btn-ghost btn-sm" id="tokenModalBtn" title="Set custom Bearer token">Token</button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <!-- Sidebar Navigation -->
+      <aside class="sidebar">
+        <nav class="nav-list">
+          <button class="nav-item active" data-tab="overview">
+            <span class="nav-dot"></span> Overview &amp; Pipeline
+          </button>
+          <button class="nav-item" data-tab="agent">
+            <span class="nav-dot"></span> Auto Recon Agent
+          </button>
+          <button class="nav-item" data-tab="brain">
+            <span class="nav-dot"></span> Skills &amp; Memory
+          </button>
+          <button class="nav-item" data-tab="models">
+            <span class="nav-dot"></span> Local AI &amp; Quant
+          </button>
+          <button class="nav-item" data-tab="scanner">
+            <span class="nav-dot"></span> MCP Tool Scanner
+          </button>
+          <button class="nav-item" data-tab="scripts">
+            <span class="nav-dot"></span> AI Script Studio
+          </button>
+          <button class="nav-item" data-tab="approvals">
+            <span class="nav-dot"></span> Approval Queue
+            <span class="badge-count" id="pendingBadge" hidden>0</span>
+          </button>
+          <button class="nav-item" data-tab="scope">
+            <span class="nav-dot"></span> Scope &amp; Policies
+          </button>
+          <button class="nav-item" data-tab="audit">
+            <span class="nav-dot"></span> Audit Ledger
+          </button>
+        </nav>
+
+        <div class="quota-card" id="sidebarQuota">
+          <div class="quota-header">
+            <span id="whoamiName">Unauthenticated</span>
+            <span class="role-badge" id="whoamiRole">-</span>
+          </div>
+          <div class="meter-block">
+            <div class="meter-label"><span>API Calls</span><span id="quotaCallsText">0 / 0</span></div>
+            <div class="meter-track"><div class="meter-fill" id="quotaCallsBar"></div></div>
+          </div>
+          <div class="meter-block">
+            <div class="meter-label"><span>LLM Tokens</span><span id="quotaTokensText">0 / 0</span></div>
+            <div class="meter-track"><div class="meter-fill meter-fill-cyan" id="quotaTokensBar"></div></div>
+          </div>
+          <div class="quota-foot" id="whoamiRpm">Rate limit: -- req/min</div>
+        </div>
+
+        <div class="notice-card">
+          <strong>Human Judgment First</strong>
+          <p>Offline local AI (Ollama / LM Studio) + Go Sandbox under strict scope. No exploit/stealth claims; human review governs final triage.</p>
+        </div>
+      </aside>
+
+      <!-- Main Panels -->
+      <main class="main-content">
+        <div id="toastBar" class="toast" hidden></div>
+
+        <!-- TAB 1: OVERVIEW -->
+        <section class="tab-panel active" id="tab-overview">
+          <div class="panel-header">
+            <div>
+              <h1>RedGate v2 — Personalized Security Testing &amp; Local-AI Recon Platform</h1>
+              <p>Combines 3-layer policy governance with local quantized LLMs (Ollama / LM Studio / HF GGUF), reusable Skills, persistent Memory, and Claude Code MCP integration.</p>
+            </div>
+            <button class="btn btn-secondary" id="refreshAllBtn">Refresh Telemetry</button>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Active Scope Rules</div>
+              <div class="kpi-value" id="kpiAllowlist">0</div>
+              <div class="kpi-sub" id="kpiEngagementName">Per-engagement RoE enforced</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Skills &amp; Memory Brain</div>
+              <div class="kpi-value kpi-cyan" id="kpiBrain">0 / 0</div>
+              <div class="kpi-sub">Active Skills / Saved Memories</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Pending Approvals</div>
+              <div class="kpi-value kpi-amber" id="kpiPending">0</div>
+              <div class="kpi-sub">Two-Person Rule DB constraint</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Audit Chain Entries</div>
+              <div class="kpi-value kpi-emerald" id="kpiAudit">0</div>
+              <div class="kpi-sub" id="kpiChainHash">SHA-256 append-only verified</div>
+            </div>
+          </div>
+
+          <div class="arch-grid">
+            <div class="card">
+              <div class="card-title">Personalized Agent + 3-Layer Security Architecture</div>
+              <div class="flow-diagram">
+                <div class="flow-step flow-ai">
+                  <div class="flow-tag">Personalized Agent Brain · 100% Private Local AI</div>
+                  <strong>Ollama / LM Studio (HF GGUF Quantized) + Skills + Operator Memory</strong>
+                  <span>Auto-Recon Pipeline · Dual-Verify Confidence · False-Positive Learning · Human Judgment Gate · Claude Code MCP</span>
+                </div>
+                <div class="flow-step">
+                  <div class="flow-tag">L1 · FastAPI Control Plane</div>
+                  <strong>Policy Gateway &amp; Multi-Language Static Validators</strong>
+                  <span>SHA-256 Bearer · RBAC · Scope + DNS Pin · Secret Scrubber · Py AST / ShellCheck / Go Vet / ESLint</span>
+                </div>
+                <div class="flow-step flow-mcp">
+                  <div class="flow-tag">L2 · Python MCP Server (HTTP + Claude Code stdio)</div>
+                  <strong>Param-Whitelisted Recon &amp; Verification Tools</strong>
+                  <span>dns_lookup · tcp_port_probe · http_headers · tls_inspect · nmap (-T2 gated) · high-risk disabled</span>
+                </div>
+                <div class="flow-step flow-go">
+                  <div class="flow-tag">L3 · Go Static Binary + Immutable SQLite Ledger</div>
+                  <strong>Isolated /tmp/sandbox Execution &amp; SHA-256 Hash-Chained Audit Log</strong>
+                  <span>SHA-256 Payload Pin · prlimit CPU/Mem/FD · PGID Timeout Kill · BEFORE UPDATE/DELETE Triggers</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">Toolchain, Local AI &amp; Quick Live Scenarios</div>
+              <div class="check-list" id="toolchainList"></div>
+              <div class="divider"></div>
+              <div class="quick-actions">
+                <button class="btn btn-primary btn-sm" id="quickReconPipeline">1. Run Dual-Verify Auto Recon</button>
+                <button class="btn btn-secondary btn-sm" id="quickGoScript">2. Generate &amp; Run Go Script</button>
+                <button class="btn btn-secondary btn-sm" id="quickBlockTest">3. Block Cloud Metadata IP</button>
+                <button class="btn btn-secondary btn-sm" id="quickApprovalTest">4. Queue Two-Person Nmap</button>
+              </div>
+              <pre class="code-output compact" id="quickActionOut">Click a scenario above to exercise the personalized Recon Agent, Go Sandbox, and Policy gates.</pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 2: PERSONALIZED AUTO RECON AGENT -->
+        <section class="tab-panel" id="tab-agent">
+          <div class="panel-header">
+            <div>
+              <h1>Personalized Automated Recon, Triage &amp; Reporting Agent</h1>
+              <p>Runs subdomain/scope validation → Skill MCP tools + Go Sandbox cross-verification → Memory-aware prioritization → human judgment review &amp; Markdown report.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="downloadReportBtn" hidden>Download Markdown Report (.md)</button>
+          </div>
+
+          <div class="split-grid">
+            <form class="card form-stack" id="reconRunForm">
+              <div class="card-title">Launch Automated Recon Pipeline (<code>POST /api/v1/recon/run</code>)</div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Active Skill Playbook</span>
+                  <select id="reconSkillSelect"></select>
+                </label>
+                <label class="field">
+                  <span>Root Target (Allowlist Verified)</span>
+                  <input type="text" id="reconTarget" value="127.0.0.1" required />
+                </label>
+              </div>
+              <small class="field-hint" id="reconSkillHint"></small>
+              <label class="field">
+                <span>Candidate Subdomains (comma-separated, optional — each verified against scope)</span>
+                <input type="text" id="reconSubdomains" placeholder="e.g. api.lab.example, app.lab.example, out-of-scope.org" />
+              </label>
+              <label class="field">
+                <span>Operator Run Focus (merged with your saved Memory &amp; scrubbed for secrets)</span>
+                <input type="text" id="reconFocus" value="Prioritize actionable transport & header gaps; flag items needing manual business-logic verification." />
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="reconQueueFollowups" checked />
+                <span>Auto-queue gated follow-up checks (e.g., <code>nmap -T2</code>) into Two-Person Approval Queue</span>
+              </label>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary">Run Personalized Recon → Report</button>
+              </div>
+
+              <div class="divider"></div>
+              <div class="card-title">Recent Recon Runs</div>
+              <div id="reconHistoryList" class="check-list"></div>
+            </form>
+
+            <div class="card">
+              <div class="card-title">AI Triage Synthesis &amp; Final Report Preview</div>
+              <div id="reconStatusBanner" class="status-banner" hidden></div>
+              <pre class="code-output tall" id="reconReportPreview">Launch a recon run or select a previous run to inspect the full report.</pre>
+            </div>
+          </div>
+
+          <div class="card mt-16">
+            <div class="card-title">Prioritized Findings &amp; Irreplaceable Human Judgment Gate</div>
+            <p class="muted-note">Mark any noisy item as <strong>False Positive + Learn</strong> to automatically teach your Agent Memory to downgrade it on all future runs.</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Score</th>
+                    <th>Severity</th>
+                    <th>Finding &amp; Evidence</th>
+                    <th>Confidence</th>
+                    <th>Where Human Judgment Is Required</th>
+                    <th>Analyst Verdict</th>
+                  </tr>
+                </thead>
+                <tbody id="reconFindingsBody">
+                  <tr><td colspan="6" style="color:var(--muted)">No recon run selected yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 3: SKILLS & PERSISTENT MEMORY (AGENT BRAIN) -->
+        <section class="tab-panel" id="tab-brain">
+          <div class="panel-header">
+            <div>
+              <h1>Agent Brain — Personalized Skills &amp; Persistent Memory</h1>
+              <p>Teach your assistant your hunting methodology, reporting preferences, engagement notes, and false-positive rules (secret-scrubbed &amp; scope-isolated).</p>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <div class="card form-stack">
+              <div class="card-title">Add Persistent Operator Memory (<code>POST /api/v1/memory</code>)</div>
+              <div class="preset-bar">
+                <span>Quick teach:</span>
+                <button type="button" class="chip chip-ok" data-mem-preset="fp_csp">FP Rule: Ignore CSP on JSON APIs</button>
+                <button type="button" class="chip chip-ok" data-mem-preset="meth_auth">Methodology: Manual BOLA/Auth Check</button>
+                <button type="button" class="chip chip-ok" data-mem-preset="note_eng">Target Note (Engagement-Scoped)</button>
+              </div>
+              <form class="form-stack" id="memoryForm">
+                <div class="two-col">
+                  <label class="field">
+                    <span>Memory Type</span>
+                    <select id="memType">
+                      <option value="false_positive_rule">false_positive_rule (Auto-Downgrades Noise)</option>
+                      <option value="methodology">methodology (Your Hunting Workflow)</option>
+                      <option value="preference">preference (Report &amp; Triage Style)</option>
+                      <option value="target_note">target_note (Scoped to Active Engagement)</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Pattern Key (for FP rules)</span>
+                    <input type="text" id="memPatternKey" placeholder="e.g. missing:content-security-policy" />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Title</span>
+                  <input type="text" id="memTitle" placeholder="Concise memory rule title" required />
+                </label>
+                <label class="field">
+                  <span>Rule / Knowledge Content (auto-scrubbed for secrets)</span>
+                  <textarea id="memContent" rows="3" placeholder="Describe your methodology rule or verified false-positive condition..." required></textarea>
+                </label>
+                <button type="submit" class="btn btn-primary btn-sm">Save to Agent Memory</button>
+              </form>
+
+              <div class="divider"></div>
+              <div class="card-title">Active Operator Memory Bank</div>
+              <div id="memoryListBox" class="check-list"></div>
+            </div>
+
+            <div class="card form-stack">
+              <div class="card-title">Registered Recon Skills (<code>skills/*.yaml</code> + Custom)</div>
+              <div id="skillsListBox" class="check-list"></div>
+
+              <div class="divider"></div>
+              <div class="card-title">Create Custom Personalized Skill (<code>POST /api/v1/skills</code>)</div>
+              <form class="form-stack" id="customSkillForm">
+                <div class="two-col">
+                  <label class="field">
+                    <span>Skill ID (kebab-case)</span>
+                    <input type="text" id="newSkillId" placeholder="my-fast-api-hunt" required />
+                  </label>
+                  <label class="field">
+                    <span>Display Name</span>
+                    <input type="text" id="newSkillName" placeholder="My Fast API + Go Verify Hunt" required />
+                  </label>
+                </div>
+                <label class="field">
+                  <span>Include Bounded Verification Stages</span>
+                  <div class="checkbox-grid">
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="dns_lookup" /> <code>dns_lookup</code></label>
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="tcp_port_probe" checked /> <code>tcp_port_probe</code></label>
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="http_headers" checked /> <code>http_headers</code></label>
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="sandbox_script" checked /> <code>Go Sandbox Dual-Verify</code></label>
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="tls_inspect" /> <code>tls_inspect</code></label>
+                    <label class="checkbox-row"><input type="checkbox" name="skillStep" value="nmap" /> <code>nmap (Approval Gate)</code></label>
+                  </div>
+                </label>
+                <label class="field">
+                  <span>HSTS Missing Severity Calibration</span>
+                  <select id="newSkillHstsSev">
+                    <option value="high">high (strict API/auth focus)</option>
+                    <option value="medium" selected>medium (standard web baseline)</option>
+                    <option value="low">low (internal lab baseline)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Description &amp; Report Focus</span>
+                  <input type="text" id="newSkillDesc" placeholder="Focus on API gateway headers with dual Go-sandbox verification" required />
+                </label>
+                <button type="submit" class="btn btn-primary btn-sm">Save Custom Skill</button>
+              </form>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 4: LOCAL AI MODEL HUB, QUANTIZATION & CLAUDE CODE -->
+        <section class="tab-panel" id="tab-models">
+          <div class="panel-header">
+            <div>
+              <h1>Local AI Model Hub — Ollama, LM Studio, Hugging Face GGUF &amp; Quantization</h1>
+              <p>Run open-weight AI models 100% locally, privately, offline, and with zero API cost. All model outputs stay locked behind RedGate validation &amp; Go Sandbox.</p>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <form class="card form-stack" id="runtimeSwitchForm">
+              <div class="card-title">Active Local Inference Runtime (<code>PUT /api/v1/models/runtime</code>)</div>
+              <div id="localProbeStatus" class="check-list"></div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Provider</span>
+                  <select id="rtProvider">
+                    <option value="ollama">Ollama (Local :11434 — Zero Cost)</option>
+                    <option value="lm_studio">LM Studio (Local :1234 — GGUF GUI/CLI)</option>
+                    <option value="openai_compatible">vLLM / llama.cpp / LiteLLM Gateway</option>
+                    <option value="mock">Offline Deterministic Lab Engine</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Quantization Level</span>
+                  <select id="rtQuant">
+                    <option value="Q4_K_M">Q4_K_M (Best RAM/Quality Balance)</option>
+                    <option value="Q5_K_M">Q5_K_M (Higher Code/Triage Precision)</option>
+                    <option value="Q6_K">Q6_K (Near-Lossless)</option>
+                    <option value="Q8_0">Q8_0 (Max 8-bit Accuracy)</option>
+                    <option value="Q3_K_M">Q3_K_M (Ultra-Low RAM)</option>
+                    <option value="FP16">FP16 (Full Precision)</option>
+                  </select>
+                </label>
+              </div>
+              <label class="field">
+                <span>Local Endpoint URL</span>
+                <input type="text" id="rtBaseUrl" value="http://127.0.0.1:11434/v1" required />
+              </label>
+              <label class="field">
+                <span>Model Tag or Hugging Face GGUF (<code>hf.co/&lt;org&gt;/&lt;repo&gt;:&lt;quant&gt;</code>)</span>
+                <input type="text" id="rtModel" value="qwen2.5-coder:14b" required />
+              </label>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary btn-sm">Switch Active Runtime</button>
+              </div>
+              <small class="field-hint">Governance invariant: Custom/open-weight local models are supported for private offline security analysis, and always pass through RedGate allowlist, validator, and Go sandbox checks.</small>
+            </form>
+
+            <form class="card form-stack" id="quantCalcForm">
+              <div class="card-title">Hardware Quantization Calculator &amp; Hugging Face GGUF Finder</div>
+              <div class="two-col">
+                <label class="field">
+                  <span>GPU VRAM (GB — 0 for CPU-only)</span>
+                  <input type="number" id="hwVram" value="8" min="0" max="512" step="1" />
+                </label>
+                <label class="field">
+                  <span>System RAM (GB)</span>
+                  <input type="number" id="hwRam" value="16" min="4" max="1024" step="2" />
+                </label>
+              </div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Primary Task</span>
+                  <select id="hwTask">
+                    <option value="recon_triage">Recon Triage &amp; Prioritization</option>
+                    <option value="script_generation">Polyglot Script Generation (Py/Sh/Go/JS)</option>
+                    <option value="report_writing">Assessment Report Synthesis</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Context Window</span>
+                  <select id="hwCtx">
+                    <option value="4096">4,096 tokens (Low RAM)</option>
+                    <option value="8192" selected>8,192 tokens (Recommended)</option>
+                    <option value="16384">16,384 tokens (Long Recon)</option>
+                    <option value="32768">32,768 tokens (Workstation)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Custom Hugging Face GGUF Repo (optional)</span>
+                  <input type="text" id="hwCustomRepo" placeholder="org/model-name-GGUF" />
+                </label>
+                <label class="field">
+                  <span>Custom Model Size (Billion Params)</span>
+                  <input type="number" id="hwCustomParams" placeholder="e.g. 14" min="1" max="200" step="0.5" />
+                </label>
+              </div>
+              <button type="submit" class="btn btn-primary btn-sm">Calculate Best Quantized Models &amp; Pull Commands</button>
+              <div id="quantResultsBox" class="check-list"></div>
+            </form>
+          </div>
+
+          <div class="card mt-16">
+            <div class="card-title">Claude Code &amp; Local CLI Integration (Included in Repository)</div>
+            <pre class="code-output compact"># 1. Pull &amp; build your private quantized local analyst model (Ollama or LM Studio — $0 API cost)
+./scripts/setup_local_llm.sh ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
+
+# 2. Open repo in Claude Code — auto-loads CLAUDE.md + .mcp.json (RedGate MCP Server) + custom slash commands:
+#    /project:new-skill &lt;idea&gt;      -> builds &amp; validates a new recon skill YAML without manual coding
+#    /project:new-mcp-tool &lt;tool&gt;   -> scaffolds a whitelisted MCP tool + policy + pytest suite
+#    /project:triage-report         -> helps apply human judgment &amp; extract false-positive Memory rules</pre>
+          </div>
+        </section>
+
+        <!-- TAB 5: MCP TOOL SCANNER -->
+        <section class="tab-panel" id="tab-scanner">
+          <div class="panel-header">
+            <div>
+              <h1>Layer 2 — Policy-Constrained MCP Tool Scanner</h1>
+              <p>Dispatches parameter-whitelisted tools via Model Context Protocol after allowlist, DNS pinning, and quota verification.</p>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <form class="card form-stack" id="scanForm">
+              <div class="card-title">Configure Scan Request (<code>POST /api/v1/scan</code>)</div>
+              <label class="field">
+                <span>Target (IP or Domain — checked against active engagement allowlist)</span>
+                <input type="text" id="scanTarget" value="127.0.0.1" required />
+                <div class="chip-row" id="scanTargetChips"></div>
+              </label>
+              <label class="field">
+                <span>MCP Tool</span>
+                <select id="scanToolSelect"></select>
+                <small class="field-hint" id="scanToolHint"></small>
+              </label>
+              <label class="field">
+                <span>Tool Parameters (JSON — validated against strict whitelist)</span>
+                <textarea id="scanParams" rows="6" spellcheck="false">{"scheme": "http", "method": "GET", "port": 8000, "path": "/probe/headers"}</textarea>
+              </label>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary">Submit Policy-Checked Scan</button>
+                <button type="button" class="btn btn-ghost" id="testBannedFlagBtn">Test Banned <code>-T4</code> Flag</button>
+              </div>
+            </form>
+
+            <div class="card">
+              <div class="card-title">Execution Output &amp; Audit Receipt</div>
+              <div id="scanStatusBanner" class="status-banner" hidden></div>
+              <pre class="code-output tall" id="scanOutput">Awaiting scan submission...</pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 6: AI MULTI-LANGUAGE SCRIPT STUDIO -->
+        <section class="tab-panel" id="tab-scripts">
+          <div class="panel-header">
+            <div>
+              <h1>Multi-Language AI Script Generator, Validator &amp; Go Sandbox</h1>
+              <p>Synthesizes or validates untrusted scripts in Python, Bash, Go, and JavaScript before executing in the isolated Go runner.</p>
+            </div>
+            <div class="mode-toggle">
+              <button class="btn btn-sm btn-primary" id="modeAiBtn">AI Generate</button>
+              <button class="btn btn-sm btn-ghost" id="modeCustomBtn">Custom Script Validator</button>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <form class="card form-stack" id="aiGenForm">
+              <div class="card-title">AI-Assisted Script Request (<code>POST /api/v1/script/generate</code>)</div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Language</span>
+                  <select id="genLanguage">
+                    <option value="python">Python (.py) — ast.parse + AST Guard</option>
+                    <option value="bash">Bash (.sh) — bash -n + ShellCheck</option>
+                    <option value="go">Go (.go) — gofmt + go vet + go build</option>
+                    <option value="javascript">JavaScript (.js) — node --check + ESLint</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>In-Scope Target</span>
+                  <input type="text" id="genTarget" value="127.0.0.1" required />
+                </label>
+              </div>
+              <label class="field">
+                <span>Verification Objective (automatically scrubbed for secrets before LLM proxy)</span>
+                <textarea id="genObjective" rows="4" required>Check HTTP defensive security headers (HSTS, CSP, X-Frame-Options, X-Content-Type-Options) and print a structured report.</textarea>
+              </label>
+              <label class="checkbox-row">
+                <input type="checkbox" id="genAutoRun" checked />
+                <span>Auto-execute inside Layer 3 Go Sandbox immediately if static validation passes</span>
+              </label>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary">Generate → Validate → Sandbox</button>
+                <button type="button" class="btn btn-ghost" id="injectSecretDemoBtn">Test Secret Scrubber</button>
+              </div>
+            </form>
+
+            <form class="card form-stack" id="customValForm" hidden>
+              <div class="card-title">Untrusted Script Static Validator (<code>POST /api/v1/script/validate</code>)</div>
+              <div class="two-col">
+                <label class="field">
+                  <span>Language</span>
+                  <select id="valLanguage">
+                    <option value="python">Python (.py)</option>
+                    <option value="bash">Bash (.sh)</option>
+                    <option value="go">Go (.go)</option>
+                    <option value="javascript">JavaScript (.js)</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Target</span>
+                  <input type="text" id="valTarget" value="127.0.0.1" required />
+                </label>
+              </div>
+              <div class="preset-bar">
+                <span>Load test case:</span>
+                <button type="button" class="chip chip-danger" data-preset="py_bad">Block: Python os.system</button>
+                <button type="button" class="chip chip-danger" data-preset="sh_bad">Block: Bash rm -rf</button>
+                <button type="button" class="chip chip-danger" data-preset="go_bad">Block: Go os/exec</button>
+                <button type="button" class="chip chip-danger" data-preset="js_bad">Block: JS child_process</button>
+                <button type="button" class="chip chip-ok" data-preset="py_good">Pass: Safe Python</button>
+              </div>
+              <label class="field">
+                <span>Script Source Code</span>
+                <textarea id="valScriptBody" class="mono-area" rows="9" spellcheck="false">import os
+os.system("id")</textarea>
+              </label>
+              <div class="btn-row">
+                <button type="submit" class="btn btn-primary">Run Static Validation Pipeline</button>
+              </div>
+            </form>
+
+            <div class="card">
+              <div class="card-title-row">
+                <span class="card-title">Validation Pipeline &amp; Go Sandbox Result</span>
+                <button class="btn btn-secondary btn-sm" id="runValidatedBtn" hidden>Run in Go Sandbox</button>
+              </div>
+              <div id="scriptMetaBanner" class="status-banner" hidden></div>
+              <div id="validationChecks" class="check-list"></div>
+              <div class="sub-label" id="generatedCodeLabel" hidden>Validated Script Source</div>
+              <pre class="code-output compact" id="generatedCodeBox" hidden></pre>
+              <div class="sub-label">Sandbox Execution Output (stdout / stderr / egress rules)</div>
+              <pre class="code-output" id="sandboxOutput">Generate or validate a script to view pipeline diagnostics and Go sandbox output.</pre>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 7: APPROVAL QUEUE -->
+        <section class="tab-panel" id="tab-approvals">
+          <div class="panel-header">
+            <div>
+              <h1>Two-Person Approval Queue</h1>
+              <p>Gated tools (e.g., <code>nmap</code>) queued manually or by the Recon Agent pause here until a distinct <code>approver</code> or <code>admin</code> decides.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="refreshApprovalsBtn">Refresh Queue</button>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Request ID</th>
+                    <th>Engagement</th>
+                    <th>Target</th>
+                    <th>Tool / Script</th>
+                    <th>Requested By</th>
+                    <th>Status</th>
+                    <th>Reviewed By</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="approvalsTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- TAB 8: SCOPE & POLICIES -->
+        <section class="tab-panel" id="tab-scope">
+          <div class="panel-header">
+            <div>
+              <h1>Engagement Allowlist &amp; Tool / Script Policies</h1>
+              <p>Strict scope allowlisting (IP, CIDR, domain, wildcard) with cloud metadata blocking and RBAC-controlled tool gating.</p>
+            </div>
+          </div>
+
+          <div class="split-grid">
+            <div class="card">
+              <div class="card-title">Engagement Allowlist Rules</div>
+              <form class="inline-form" id="addAllowlistForm">
+                <input type="text" id="newTargetInput" placeholder="e.g. 203.0.113.0/24 or api.lab.example" required />
+                <input type="text" id="newTargetDesc" placeholder="Signed RoE justification" required />
+                <button type="submit" class="btn btn-primary btn-sm">Add Scope</button>
+              </form>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>ID</th>
+                      <th>Engagement</th>
+                      <th>Target</th>
+                      <th>Description</th>
+                      <th>Active</th>
+                    </tr>
+                  </thead>
+                  <tbody id="allowlistTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="card">
+              <div class="card-title">MCP Tool Policy Matrix (Admin Toggle)</div>
+              <div class="table-wrap">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>Tool</th>
+                      <th>Risk</th>
+                      <th>Timeout</th>
+                      <th>Approval</th>
+                      <th>Enabled</th>
+                    </tr>
+                  </thead>
+                  <tbody id="toolPolicyTableBody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="card mt-16">
+            <div class="card-title">Multi-Language Script Sandbox Policies (<code>config/script_policy.yaml</code>)</div>
+            <div class="lang-policy-grid" id="scriptPolicyGrid"></div>
+          </div>
+        </section>
+
+        <!-- TAB 9: AUDIT LEDGER -->
+        <section class="tab-panel" id="tab-audit">
+          <div class="panel-header">
+            <div>
+              <h1>Append-Only, SHA-256 Hash-Chained Audit Ledger</h1>
+              <p>Protected by SQLite <code>BEFORE UPDATE</code> &amp; <code>BEFORE DELETE</code> abort triggers plus cryptographic hash linking.</p>
+            </div>
+            <div class="btn-row">
+              <select id="auditStatusFilter" class="filter-select">
+                <option value="">All Statuses</option>
+                <option value="completed">completed</option>
+                <option value="validated">validated</option>
+                <option value="pending_approval">pending_approval</option>
+                <option value="approved">approved</option>
+                <option value="rejected">rejected</option>
+                <option value="validation_failed">validation_failed</option>
+                <option value="timeout">timeout</option>
+                <option value="failed">failed</option>
+              </select>
+              <button class="btn btn-primary btn-sm" id="verifyChainBtn">Verify SHA-256 Chain</button>
+            </div>
+          </div>
+
+          <div id="chainVerifyBanner" class="status-banner status-ok" hidden></div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table class="data-table audit-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Timestamp (UTC)</th>
+                    <th>Operator</th>
+                    <th>Engagement</th>
+                    <th>Target</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                    <th>Exit / Dur</th>
+                    <th>SHA-256 Link</th>
+                    <th>Summary / Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="auditTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Bearer Token Dialog -->
+  <dialog id="tokenDialog" class="modal">
+    <form method="dialog" class="modal-box" id="tokenDialogForm">
+      <h3>Operator Bearer Token Authentication</h3>
+      <p>Enter a Bearer token from <code>./scripts/bootstrap_env.sh</code>. Only SHA-256 digests are stored server-side.</p>
+      <input type="password" id="manualTokenInput" placeholder="Bearer token (rg_...)" autocomplete="off" />
+      <div class="btn-row right">
+        <button type="button" class="btn btn-ghost" id="closeTokenDialog">Cancel</button>
+        <button type="submit" class="btn btn-primary">Authenticate</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

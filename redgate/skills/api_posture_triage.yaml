@@ -1,0 +1,33 @@
+id: "api-posture-triage"
+name: "API Gateway Exposure & Hardening Triage"
+version: "1.0"
+category: "api_assessment"
+description: >
+  Tailored for REST/GraphQL API hosts: emphasizes HSTS, X-Content-Type-Options,
+  Cache-Control, TLS cipher strength, and reduces noise from browser-only headers.
+max_steps: 4
+expand_wildcard_subdomains: false
+steps:
+  - stage: "port_reachability"
+    tool: "tcp_port_probe"
+    params:
+      ports: [443, 8000, 8080, 8443]
+    rationale: "Identify exposed primary and alternate API listener ports."
+  - stage: "http_posture"
+    tool: "http_headers"
+    params:
+      method: "GET"
+    rationale: "Inspect API transport and MIME/caching security headers."
+prioritization_rules:
+  missing_hsts_severity: "high"
+  missing_csp_severity: "low"
+  missing_xcto_severity: "medium"
+  missing_permissions_policy_severity: "info"
+  missing_coop_severity: "info"
+  expiring_cert_days_high: 21
+  expiring_cert_days_medium: 45
+  legacy_tls_severity: "high"
+report_focus: >
+  Prioritize transport security (HSTS/TLS) and non-standard exposed ports on API
+  gateways; downgrade browser-only headers and remind the analyst to manually test
+  object-level authorization (BOLA/IDOR) which automated recon cannot judge.

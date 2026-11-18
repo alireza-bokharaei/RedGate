@@ -1,0 +1,39 @@
+id: "polyglot-sandbox-verify"
+name: "Dual-Check Recon + Go Sandbox Verification"
+version: "1.0"
+category: "hybrid_verification"
+description: >
+  Runs MCP surface checks AND synthesizes a validated Go verification script
+  executed inside Layer 3 Go Sandbox to cross-confirm findings and cut false positives.
+max_steps: 5
+expand_wildcard_subdomains: false
+sandbox_verify_language: "go"
+steps:
+  - stage: "port_reachability"
+    tool: "tcp_port_probe"
+    params:
+      ports: [80, 443, 8000]
+    rationale: "Confirm open HTTP/HTTPS service port."
+  - stage: "http_posture"
+    tool: "http_headers"
+    params:
+      method: "GET"
+    rationale: "Primary MCP HTTP security header inspection."
+  - stage: "sandbox_cross_verify"
+    tool: "sandbox_script"
+    params:
+      language: "go"
+      objective: "Independently verify HTTP security headers and status code to confirm MCP findings"
+    rationale: "Cross-verify header observations from isolated Layer 3 Go sandbox to raise confidence."
+prioritization_rules:
+  missing_hsts_severity: "medium"
+  missing_csp_severity: "medium"
+  missing_xcto_severity: "low"
+  missing_permissions_policy_severity: "low"
+  missing_coop_severity: "info"
+  expiring_cert_days_high: 14
+  expiring_cert_days_medium: 30
+  legacy_tls_severity: "high"
+report_focus: >
+  Compare MCP tool output with independent Go-sandbox verification to boost
+  evidence confidence and eliminate single-tool parsing anomalies.

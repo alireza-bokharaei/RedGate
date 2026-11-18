@@ -1,0 +1,187 @@
+# =============================================================================
+# RedGate Multi-Language Script Validation & Sandbox Policy
+# Applies to ALL AI-generated and operator-submitted scripts (Python/Bash/Go/JS).
+# Scripts are treated as UNTRUSTED: static validation + isolated Go sandbox.
+# =============================================================================
+
+sandbox_defaults:
+  workspace_root: "/tmp/sandbox"
+  max_memory_mb: 128
+  max_cpu_sec: 15
+  max_processes: 32
+  max_file_size_mb: 8
+  max_output_bytes: 65536
+  max_script_bytes: 32768
+  require_approval_for_high_risk: true
+
+languages:
+  python:
+    enabled: true
+    max_runtime_sec: 15
+    network_egress_allowlist: true
+    allowed_imports:
+      - "json"
+      - "re"
+      - "ssl"
+      - "time"
+      - "datetime"
+      - "hashlib"
+      - "hmac"
+      - "ipaddress"
+      - "urllib"
+      - "urllib.request"
+      - "urllib.parse"
+      - "urllib.error"
+      - "http"
+      - "http.client"
+      - "math"
+      - "statistics"
+      - "collections"
+      - "typing"
+      - "dataclasses"
+      - "pathlib"
+      - "csv"
+      - "io"
+      - "sys"
+    forbidden_imports:
+      - "os"
+      - "subprocess"
+      - "pty"
+      - "shutil"
+      - "ctypes"
+      - "cffi"
+      - "importlib"
+      - "builtins"
+      - "pickle"
+      - "marshal"
+      - "shelve"
+      - "socket"
+      - "asyncio.subprocess"
+      - "multiprocessing"
+      - "signal"
+      - "resource"
+      - "fcntl"
+      - "mmap"
+      - "code"
+      - "runpy"
+      - "inspect"
+    forbidden_patterns:
+      - "\\beval\\s*\\("
+      - "\\bexec\\s*\\("
+      - "\\bcompile\\s*\\("
+      - "\\b__import__\\s*\\("
+      - "__subclasses__"
+      - "__globals__"
+      - "__builtins__"
+      - "os\\.system"
+      - "subprocess\\."
+
+  bash:
+    enabled: true
+    max_runtime_sec: 15
+    network_egress_allowlist: true
+    allowed_imports:
+      - "curl"
+      - "dig"
+      - "openssl"
+      - "printf"
+      - "echo"
+      - "grep"
+      - "awk"
+      - "sed"
+      - "head"
+      - "tail"
+      - "cut"
+      - "sort"
+      - "uniq"
+      - "wc"
+      - "tr"
+      - "date"
+      - "jq"
+      - "cat"
+      - "mktemp"
+    forbidden_patterns:
+      - "\\brm\\s+-[a-zA-Z]*[rf]"
+      - "\\bmkfs\\b"
+      - "\\bdd\\s+if="
+      - "\\b(sudo|su|doas|chroot|nsenter|unshare|mount|umount)\\b"
+      - "\\bchmod\\s+[+0-7]*[s42]"
+      - "/dev/(tcp|udp)/"
+      - "\\b(nc|ncat|netcat|socat)\\b"
+      - "\\beval\\b"
+      - "base64\\s+(-d|--decode)\\s*\\|\\s*(ba)?sh"
+      - "\\|\\s*(ba)?sh\\b"
+      - "\\b(crontab|at|systemctl|service|iptables|nft)\\b"
+      - "\\b(python|python3|perl|ruby|php|node|wget|ssh|scp|sftp|hydra|sqlmap|john)\\b"
+      - ":\\(\\)\\s*\\{\\s*:\\|:\\s*&\\s*\\};:"
+      - ">\\s*/(?!tmp/sandbox|dev/null)"
+
+  go:
+    enabled: true
+    max_runtime_sec: 20
+    network_egress_allowlist: true
+    allowed_imports:
+      - "bytes"
+      - "context"
+      - "crypto/sha256"
+      - "crypto/tls"
+      - "crypto/x509"
+      - "encoding/hex"
+      - "encoding/json"
+      - "errors"
+      - "fmt"
+      - "io"
+      - "math"
+      - "net/http"
+      - "net/url"
+      - "regexp"
+      - "sort"
+      - "strconv"
+      - "strings"
+      - "time"
+    forbidden_patterns:
+      - "\"os/exec\""
+      - "\"syscall\""
+      - "\"unsafe\""
+      - "\"plugin\""
+      - "\"runtime/debug\""
+      - "//go:linkname"
+      - "//\\s*#include"
+      - "import\\s+\"C\""
+      - "net\\.Dial"
+      - "net\\.Listen"
+
+  javascript:
+    enabled: true
+    max_runtime_sec: 15
+    network_egress_allowlist: true
+    allowed_imports:
+      - "http"
+      - "node:http"
+      - "https"
+      - "node:https"
+      - "tls"
+      - "node:tls"
+      - "url"
+      - "node:url"
+      - "crypto"
+      - "node:crypto"
+      - "path"
+      - "node:path"
+      - "util"
+      - "node:util"
+      - "assert"
+      - "node:assert"
+    forbidden_patterns:
+      - "child_process"
+      - "worker_threads"
+      - "\\bcluster\\b"
+      - "\\bdgram\\b"
+      - "\\binspector\\b"
+      - "process\\.binding"
+      - "process\\.dlopen"
+      - "process\\.kill"
+      - "\\beval\\s*\\("
+      - "new\\s+Function\\s*\\("
+      - "require\\s*\\(\\s*['\"](node:)?(fs|net|os|vm|v8|module|child_process)['\"]\\s*\\)"
+      - "from\\s+['\"](node:)?(fs|net|os|vm|v8|module|child_process)['\"]"

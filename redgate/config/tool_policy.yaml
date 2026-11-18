@@ -1,0 +1,110 @@
+# =============================================================================
+# RedGate Tool Policy Configuration
+# Controls MCP tool availability, parameter whitelists, timeouts, and approvals.
+# High-risk tools are DISABLED by default and enforce two-person approval.
+# =============================================================================
+
+global_defaults:
+  max_concurrent_scans: 4
+  max_output_bytes: 65536
+  default_timeout_sec: 30
+
+tools:
+  - tool_name: "http_headers"
+    enabled: true
+    max_timeout: 20
+    risk_level: "low"
+    requires_approval: false
+    description: "Inspect HTTP response status and defensive security headers (HSTS, CSP, XFO)."
+    allowed_params:
+      schemes: ["http", "https"]
+      methods: ["HEAD", "GET"]
+      allowed_ports: [80, 443, 8000, 8002, 8080, 8443]
+      max_path_length: 128
+      follow_redirects: false
+
+  - tool_name: "tls_inspect"
+    enabled: true
+    max_timeout: 15
+    risk_level: "low"
+    requires_approval: false
+    description: "Inspect TLS protocol version, negotiated cipher suite, and certificate validity."
+    allowed_params:
+      allowed_ports: [443, 8443]
+
+  - tool_name: "dns_lookup"
+    enabled: true
+    max_timeout: 15
+    risk_level: "low"
+    requires_approval: false
+    description: "Query standard DNS records (A, AAAA, MX, TXT, NS) for an in-scope domain."
+    allowed_params:
+      record_types: ["A", "AAAA", "MX", "TXT", "NS", "CNAME"]
+
+  - tool_name: "tcp_port_probe"
+    enabled: true
+    max_timeout: 25
+    risk_level: "low"
+    requires_approval: false
+    description: "Low-noise TCP connect check on up to 10 explicitly specified ports."
+    allowed_params:
+      max_ports: 10
+      min_port: 1
+      max_port: 65535
+      per_port_timeout_sec: 2.0
+      inter_probe_delay_ms: 150
+
+  - tool_name: "nmap"
+    enabled: true
+    max_timeout: 120
+    risk_level: "medium"
+    requires_approval: true
+    description: "Constrained Nmap service detection with low-noise timing (-T1/-T2 only)."
+    allowed_params:
+      allowed_flags: ["-sV", "-sC", "-sT", "-T1", "-T2", "-Pn", "--open"]
+      forbidden_flags: ["-T3", "-T4", "-T5", "-A", "-O", "--script", "-iL", "-oN", "-oX", "-oG", "-oA", "--interactive"]
+      max_port_spec_length: 32
+      port_spec_regex: "^[0-9,\\-]{1,32}$"
+
+  # ---------------------------------------------------------------------------
+  # HIGH-RISK / CRITICAL TOOLS — DISABLED BY DEFAULT (Core Principle #3)
+  # Even when temporarily enabled by an admin, two-person approval is mandatory,
+  # and destructive/shell flags remain permanently blocked in code.
+  # ---------------------------------------------------------------------------
+  - tool_name: "nmap_aggressive"
+    enabled: false
+    max_timeout: 180
+    risk_level: "high"
+    requires_approval: true
+    description: "High-rate Nmap timing (-T4+) — disabled by default due to outage/IDS noise risk."
+    allowed_params:
+      allowed_flags: ["-sV", "-T4", "--open"]
+      forbidden_flags: ["-T5", "--script", "--interactive"]
+
+  - tool_name: "sqlmap"
+    enabled: false
+    max_timeout: 180
+    risk_level: "critical"
+    requires_approval: true
+    description: "SQL injection verification tool — disabled by default; OS/shell flags permanently banned."
+    allowed_params:
+      allowed_flags: ["--batch", "--level=1", "--risk=1"]
+      permanently_forbidden_flags: ["--os-shell", "--os-pwn", "--os-cmd", "--sql-shell", "--file-write", "--file-read", "--priv-esc"]
+
+  - tool_name: "hydra"
+    enabled: false
+    max_timeout: 120
+    risk_level: "critical"
+    requires_approval: true
+    description: "Online authentication testing — disabled by default due to account lockout risk."
+    allowed_params:
+      allowed_flags: []
+
+  - tool_name: "john"
+    enabled: false
+    max_timeout: 300
+    risk_level: "high"
+    requires_approval: true
+    description: "Offline password hash auditing — disabled by default; requires explicit engagement sign-off."
+    allowed_params:
+      allowed_flags: ["--list=formats"]

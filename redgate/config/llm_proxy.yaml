@@ -1,0 +1,74 @@
+# =============================================================================
+# RedGate LLM Proxy Gateway Configuration
+# Enforces token/call quotas, rate limiting, secret scrubbing, and restricted
+# system/user prompt templates. Supports OpenAI-compatible local/cloud models
+# (Ollama, vLLM, LiteLLM, OpenAI) plus deterministic offline mock mode.
+# =============================================================================
+
+provider:
+  # Overridden by REDGATE_LLM_MODE, REDGATE_LLM_BASE_URL, REDGATE_LLM_MODEL, REDGATE_LLM_API_KEY
+  mode_env: "REDGATE_LLM_MODE"
+  base_url_env: "REDGATE_LLM_BASE_URL"
+  model_env: "REDGATE_LLM_MODEL"
+  api_key_env: "REDGATE_LLM_API_KEY"
+  default_mode: "mock"
+  default_base_url: "http://localhost:11434/v1"
+  default_model: "qwen2.5-coder:14b"
+  request_timeout_sec: 45
+  temperature: 0.1
+  max_completion_tokens: 1400
+
+rate_limit:
+  requests_per_minute: 10
+  burst_allowance: 2
+
+default_quota:
+  period: "daily"
+  max_calls: 50
+  max_tokens: 40000
+
+secret_scrubbing:
+  enabled: true
+  replacement: "[REDACTED_SECRET]"
+  patterns:
+    - name: "pem_private_key"
+      regex: "-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z0-9 ]*PRIVATE KEY-----"
+    - name: "bearer_token"
+      regex: "(?i)bearer\\s+[A-Za-z0-9\\-._~+/]+=*"
+    - name: "jwt_token"
+      regex: "eyJ[A-Za-z0-9_-]{10,}\\.eyJ[A-Za-z0-9_-]{10,}\\.[A-Za-z0-9_-]{10,}"
+    - name: "openai_or_sk_key"
+      regex: "\\bsk-[A-Za-z0-9_-]{16,}\\b"
+    - name: "aws_access_key"
+      regex: "\\b(AKIA|ASIA)[0-9A-Z]{16}\\b"
+    - name: "github_token"
+      regex: "\\bgh[pousr]_[A-Za-z0-9]{20,}\\b"
+    - name: "generic_secret_assignment"
+      regex: "(?i)(password|passwd|api[_-]?key|secret|token|authorization)\\s*[:=]\\s*['\"]?[^\\s'\"]{6,}['\"]?"
+
+restricted_prompt_template:
+  system: |
+    You are an internal security verification script generator operating inside RedGate.
+    STRICT NON-NEGOTIABLE RULES:
+    1. Generate ONLY a benign, read-only security verification script in {language}.
+    2. NEVER generate exploit payloads, brute-force routines, denial-of-service loops,
+       shell execution, evasion/stealth techniques, or persistence mechanisms.
+    3. Interact ONLY with the exact authorized target: {target}. Never contact any other host.
+    4. Use ONLY these allowed imports/commands: {allowed_imports}.
+    5. Never use forbidden patterns or dynamic code execution.
+    6. Keep runtime strictly under {max_runtime_sec} seconds with explicit request timeouts.
+    7. Write any temporary output ONLY inside /tmp/sandbox or stdout.
+    8. Respond ONLY with a valid JSON object matching this exact schema:
+       {{
+         "language": "{language}",
+         "script": "<complete runnable source code>",
+         "dependencies": ["<stdlib module or cli tool>"],
+         "expected_runtime_sec": <integer>,
+         "risk_level": "low" | "medium" | "high",
+         "risk_notes": "<concise safety and noise summary>"
+       }}
+  user: |
+    Engagement ID: {engagement_id}
+    Authorized Target: {target}
+    Target Language: {language}
+    Sanitized Operator Objective: {sanitized_objective}

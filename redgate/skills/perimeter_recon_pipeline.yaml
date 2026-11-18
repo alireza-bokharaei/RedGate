@@ -1,0 +1,58 @@
+id: "perimeter-recon-pipeline"
+name: "End-to-End Perimeter Recon & Report"
+version: "1.0"
+category: "recon_pipeline"
+description: >
+  Automated multi-stage recon from scope-validated subdomains and DNS records
+  through TCP service check, HTTP defensive posture, TLS hygiene, memory-aware
+  prioritization, and final Markdown/JSON assessment report.
+max_steps: 6
+expand_wildcard_subdomains: true
+subdomain_prefixes:
+  - "www"
+  - "api"
+  - "app"
+  - "status"
+steps:
+  - stage: "dns_discovery"
+    tool: "dns_lookup"
+    params:
+      record_type: "A"
+    on_ip_target: "skip"
+    rationale: "Resolve canonical IPv4 addresses for in-scope domain/subdomains."
+  - stage: "port_reachability"
+    tool: "tcp_port_probe"
+    params:
+      ports: [80, 443, 8000, 8443]
+    rationale: "Verify reachable web/API service ports with paced low-noise connect checks."
+  - stage: "http_posture"
+    tool: "http_headers"
+    params:
+      method: "GET"
+    rationale: "Audit defensive HTTP security headers (HSTS, CSP, XFO, XCTO, Referrer, COOP)."
+  - stage: "tls_hygiene"
+    tool: "tls_inspect"
+    params:
+      port: 443
+    only_if_port_open: 443
+    rationale: "Inspect TLS protocol version, cipher strength, and certificate expiry window."
+  - stage: "deep_service_gate"
+    tool: "nmap"
+    params:
+      flags: ["-sV", "-T2", "--open"]
+      ports: "80,443"
+    mode: "recommend_approval"
+    rationale: "Queue optional service-banner check for explicit Two-Person human approval."
+prioritization_rules:
+  missing_hsts_severity: "medium"
+  missing_csp_severity: "medium"
+  missing_xcto_severity: "low"
+  missing_permissions_policy_severity: "low"
+  missing_coop_severity: "info"
+  expiring_cert_days_high: 14
+  expiring_cert_days_medium: 30
+  legacy_tls_severity: "high"
+report_focus: >
+  Correlate exposed web ports with transport/header hardening gaps, suppress
+  operator-verified false positives from Memory, and highlight exact manual checks
+  where human analyst judgment is irreplaceable.

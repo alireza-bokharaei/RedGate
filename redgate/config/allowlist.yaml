@@ -1,0 +1,50 @@
+# =============================================================================
+# RedGate Scope & Allowlist Configuration
+# Separated from tool, script, and LLM configs for independent RoE sign-off.
+# Replace placeholder RFC 5737 / RFC 2606 entries with signed engagement scopes.
+# =============================================================================
+
+dns_security:
+  # Block targets resolving to loopback, link-local, or cloud metadata IPs
+  # unless that exact IP/CIDR is explicitly listed in the engagement allowlist.
+  block_loopback_by_default: true
+  block_link_local_and_metadata: true
+  block_multicast: true
+  resolve_domains_at_check_time: true
+
+engagements:
+  - id: "ENG-2026-001"
+    name: "Q4 Internal Perimeter Assessment"
+    description: "Authorized assessment under signed Rules of Engagement #RoE-2026-Q4"
+    valid_from: "2026-01-01T00:00:00Z"
+    valid_until: "2027-12-31T23:59:59Z"
+    active: true
+    targets:
+      - target: "192.0.2.0/24"
+        description: "RFC 5737 TEST-NET-1 staging subnet (replace with authorized CIDR)"
+        created_by: "admin-kaveh"
+        active: true
+      - target: "198.51.100.10"
+        description: "RFC 5737 TEST-NET-2 staging API gateway host"
+        created_by: "admin-kaveh"
+        active: true
+      - target: "example.com"
+        description: "RFC 2606 documentation domain for benign header/TLS validation"
+        created_by: "lead-sara"
+        active: true
+      - target: "*.lab.example"
+        description: "Wildcard subdomain scope for isolated internal lab"
+        created_by: "lead-sara"
+        active: true
+
+  - id: "ENG-LOCAL-LAB"
+    name: "Sandbox Loopback Verification Lab"
+    description: "Self-contained verification scope targeting only the local gateway probe"
+    valid_from: "2026-01-01T00:00:00Z"
+    valid_until: "2027-12-31T23:59:59Z"
+    active: true
+    targets:
+      - target: "127.0.0.1"
+        description: "Explicitly authorized loopback for local self-test endpoint only"
+        created_by: "admin-kaveh"
+        active: true

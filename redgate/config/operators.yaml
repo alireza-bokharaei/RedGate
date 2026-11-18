@@ -1,0 +1,44 @@
+# =============================================================================
+# RedGate Operator Identity, RBAC & Quota Policy
+# Plaintext tokens are NEVER stored here — only SHA-256 hex digests loaded from
+# environment variables. Separation of duties enforces Two-Person approval.
+# =============================================================================
+
+operators:
+  - operator_id: "op-alice"
+    display_name: "Alice (Red Team Operator)"
+    role: "operator"
+    token_hash_env: "REDGATE_TOKEN_HASH_OP_ALICE"
+    rate_limit_rpm: 10
+    quota:
+      period: "daily"
+      max_calls: 50
+      max_tokens: 40000
+    allowed_engagements:
+      - "ENG-2026-001"
+      - "ENG-LOCAL-LAB"
+
+  - operator_id: "lead-sara"
+    display_name: "Sara (Red Team Lead / Approver)"
+    role: "approver"
+    token_hash_env: "REDGATE_TOKEN_HASH_LEAD_SARA"
+    rate_limit_rpm: 20
+    quota:
+      period: "daily"
+      max_calls: 100
+      max_tokens: 80000
+    allowed_engagements:
+      - "ENG-2026-001"
+      - "ENG-LOCAL-LAB"
+
+  - operator_id: "admin-kaveh"
+    display_name: "Kaveh (Security Platform Admin)"
+    role: "admin"
+    token_hash_env: "REDGATE_TOKEN_HASH_ADMIN_KAVEH"
+    rate_limit_rpm: 30
+    quota:
+      period: "daily"
+      max_calls: 150
+      max_tokens: 100000
+    allowed_engagements:
+      - "*"

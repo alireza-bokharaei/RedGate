@@ -1,0 +1,132 @@
+# =============================================================================
+# RedGate Local AI Model Hub & Quantization Configuration
+# Enables 100% offline, private, zero-API-cost operation using Ollama,
+# LM Studio, and Hugging Face GGUF quantized open-weight models.
+# IMPORTANT: Regardless of which local model is attached (standard or custom
+# open-weight), RedGate ALWAYS enforces allowlists, non-exploitation guards,
+# 4-language static validation, Go sandbox isolation, and append-only auditing.
+# =============================================================================
+
+providers:
+  ollama:
+    display_name: "Ollama (Local Daemon)"
+    openai_base_url: "http://127.0.0.1:11434/v1"
+    native_base_url: "http://127.0.0.1:11434"
+    docker_base_url: "http://ollama:11434/v1"
+    requires_api_key: false
+    supports_hf_gguf_direct: true
+    notes: "Pull any Hugging Face GGUF directly via `ollama run hf.co/<org>/<repo>:<quant>`."
+
+  lm_studio:
+    display_name: "LM Studio (Local Server)"
+    openai_base_url: "http://127.0.0.1:1234/v1"
+    native_base_url: "http://127.0.0.1:1234"
+    docker_base_url: "http://host.docker.internal:1234/v1"
+    requires_api_key: false
+    supports_hf_gguf_direct: true
+    notes: "Browse & download GGUF quantizations from Hugging Face in LM Studio or `lms get`, then enable Local Server on :1234."
+
+  openai_compatible:
+    display_name: "vLLM / llama.cpp / LiteLLM Gateway"
+    openai_base_url: "http://127.0.0.1:8080/v1"
+    native_base_url: "http://127.0.0.1:8080"
+    docker_base_url: "http://llm-gateway.internal:8080/v1"
+    requires_api_key: true
+    supports_hf_gguf_direct: true
+    notes: "High-throughput self-hosted GPU inference server or internal team LLM proxy."
+
+  mock:
+    display_name: "Offline Deterministic Engine (Lab / CI)"
+    openai_base_url: "offline://mock"
+    native_base_url: "offline://mock"
+    docker_base_url: "offline://mock"
+    requires_api_key: false
+    supports_hf_gguf_direct: false
+    notes: "Zero-dependency deterministic triage and multi-language synthesizer for tests and air-gapped demos."
+
+quantization_profiles:
+  - code: "Q3_K_M"
+    bits_per_weight: 3.5
+    quality_retention_pct: 88
+    speed_tier: "fastest"
+    use_when: "Tight memory budget (<= 8 GB RAM/VRAM) when testing larger 14B models."
+  - code: "Q4_K_M"
+    bits_per_weight: 4.8
+    quality_retention_pct: 95
+    speed_tier: "fast"
+    use_when: "Best all-round sweet spot for consumer laptops/VMs (high accuracy, ~70% memory savings vs FP16)."
+  - code: "Q5_K_M"
+    bits_per_weight: 5.7
+    quality_retention_pct: 97
+    speed_tier: "balanced"
+    use_when: "Recommended for multi-language code generation and nuanced false-positive triage."
+  - code: "Q6_K"
+    bits_per_weight: 6.6
+    quality_retention_pct: 99
+    speed_tier: "moderate"
+    use_when: "Near-lossless reasoning when 16–24 GB VRAM/unified memory is available."
+  - code: "Q8_0"
+    bits_per_weight: 8.5
+    quality_retention_pct: 99.7
+    speed_tier: "slower"
+    use_when: "Workstation-class GPUs (24–48 GB VRAM) requiring maximum script precision."
+  - code: "FP16"
+    bits_per_weight: 16.0
+    quality_retention_pct: 100
+    speed_tier: "baseline"
+    use_when: "Dedicated multi-GPU server deployments only."
+
+huggingface_catalog:
+  - id: "qwen25-coder-7b"
+    name: "Qwen 2.5 Coder 7B Instruct"
+    params_b: 7.6
+    hf_repo: "Qwen/Qwen2.5-Coder-7B-Instruct-GGUF"
+    ollama_tag: "qwen2.5-coder:7b"
+    specialty: "Fast local Python/Bash/Go/JS verification scripts on 8 GB systems"
+    recommended_quants: ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    role_fit: ["script_generation", "recon_triage"]
+
+  - id: "qwen25-coder-14b"
+    name: "Qwen 2.5 Coder 14B Instruct"
+    params_b: 14.7
+    hf_repo: "Qwen/Qwen2.5-Coder-14B-Instruct-GGUF"
+    ollama_tag: "qwen2.5-coder:14b"
+    specialty: "Primary RedGate default: strong Go/Python code + structured JSON triage"
+    recommended_quants: ["Q4_K_M", "Q5_K_M", "Q6_K"]
+    role_fit: ["script_generation", "recon_triage", "report_writing"]
+
+  - id: "deepseek-r1-qwen-14b"
+    name: "DeepSeek-R1 Distill Qwen 14B"
+    params_b: 14.7
+    hf_repo: "bartowski/DeepSeek-R1-Distill-Qwen-14B-GGUF"
+    ollama_tag: "deepseek-r1:14b"
+    specialty: "Deep analytical prioritization, correlation of recon signals & false-positive reduction"
+    recommended_quants: ["Q4_K_M", "Q5_K_M", "Q6_K"]
+    role_fit: ["recon_triage", "prioritization", "report_writing"]
+
+  - id: "llama31-8b-instruct"
+    name: "Llama 3.1 8B Instruct"
+    params_b: 8.0
+    hf_repo: "bartowski/Meta-Llama-3.1-8B-Instruct-GGUF"
+    ollama_tag: "llama3.1:8b"
+    specialty: "Lightweight general recon assistant and executive summary writer"
+    recommended_quants: ["Q4_K_M", "Q5_K_M", "Q8_0"]
+    role_fit: ["recon_triage", "report_writing"]
+
+  - id: "qwen25-coder-32b"
+    name: "Qwen 2.5 Coder 32B Instruct"
+    params_b: 32.5
+    hf_repo: "Qwen/Qwen2.5-Coder-32B-Instruct-GGUF"
+    ollama_tag: "qwen2.5-coder:32b"
+    specialty: "Flagship local precision on 24 GB+ VRAM (via Q4_K_M) or 32 GB+ unified RAM"
+    recommended_quants: ["Q4_K_M", "Q5_K_M"]
+    role_fit: ["script_generation", "recon_triage", "prioritization", "report_writing"]
+
+custom_model_governance:
+  allow_custom_hf_gguf: true
+  allow_custom_modelfile: true
+  # Hard platform rule: even when operators attach custom/domain-tuned open-weight
+  # local models to avoid false-positive refusals on security terminology, every
+  # output remains untrusted and MUST pass RedGate policy, validator, and sandbox gates.
+  bypass_policy_for_local_models: false
+  mandatory_human_review_confidence_threshold: 0.80
