@@ -172,7 +172,7 @@ class MCPToolExecutor:
         async with httpx.AsyncClient(
             follow_redirects=False, trust_env=False,
             timeout=req_timeout, verify=True,
-            headers={"User-Agent": "RedGate-PolicyScanner/2.1 (Authorized Security Audit)"},
+            headers={"User-Agent": "Redstrike-PolicyScanner/2.1 (Authorized Security Audit)"},
         ) as client:
             # Header inspection must not buffer an unbounded response body.
             async with client.stream(method, connect_url, headers={"Host": host_part},

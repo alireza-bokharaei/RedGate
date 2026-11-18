@@ -2,7 +2,7 @@
 
 Executes an end-to-end automated reconnaissance workflow from subdomain/scope
 verification to prioritized findings and exportable Markdown reports while keeping
-every RedGate Iteration 1 safety invariant intact:
+every Redstrike Iteration 1 safety invariant intact:
   1. Every root target and candidate subdomain is checked against `allowlist` + DNS guard.
   2. Bounded step count (`max_steps <= 6`) and quota metering — no runaway loops.
   3. Only enabled low-risk MCP tools + validated Go-sandbox scripts execute automatically;
@@ -865,7 +865,7 @@ class PersonalizedReconAgent:
     ) -> str:
         sc = stats["severity_counts"]
         lines = [
-            f"# RedGate Automated Recon & Triage Report — `{run_id}`",
+            f"# Redstrike Automated Recon & Triage Report — `{run_id}`",
             "",
             f"- **Engagement**: `{engagement_id}` | **Primary Target**: `{target}`",
             f"- **Operator**: `{operator_id}` | **Skill Playbook**: `{skill_record['name']}` (`{skill_record['skill_id']}`)",

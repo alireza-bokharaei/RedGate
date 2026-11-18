@@ -1,5 +1,5 @@
 # =============================================================================
-# RedGate Operator Identity, RBAC & Quota Policy
+# Redstrike Operator Identity, RBAC & Quota Policy
 # Plaintext tokens are NEVER stored here — only SHA-256 hex digests loaded from
 # environment variables. Separation of duties enforces Two-Person approval.
 # =============================================================================

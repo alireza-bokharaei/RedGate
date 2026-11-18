@@ -1,4 +1,4 @@
-"""RedGate Layer 1 — FastAPI Security Testing Gateway.
+"""Redstrike Layer 1 — FastAPI Security Testing Gateway.
 
 Orchestrates:
   - Bearer SHA-256 auth, RBAC (operator / approver / admin), and RPM rate limiting
@@ -154,7 +154,7 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
             await workspace.close()
 
     application = FastAPI(
-        title="RedGate 2.1 — Auditable Mission & Evidence Workspace",
+        title="Redstrike 2.1 — Auditable Mission & Evidence Workspace",
         description=(
             "Policy-controlled security verification & automated recon platform with Local LLM Hub "
             "(Ollama / LM Studio / Hugging Face GGUF Quantization), Operator Skills & Memory, "

@@ -1,4 +1,4 @@
-/* RedGate 2.1 mission console. All data stays same-origin; no tokens in URLs. */
+/* Redstrike 2.1 mission console. All data stays same-origin; no tokens in URLs. */
 (() => {
   "use strict";
   const $ = (id) => document.getElementById(id);
@@ -134,7 +134,7 @@
   function renderGraph() {
     if (!snapshot) return;
     const graph = mode === "assets" ? snapshot.asset_graph : snapshot.exploration_graph;
-    const data = window.RedGateGraph.render($("wsGraph"), graph, (node) => {
+    const data = window.RedstrikeGraph.render($("wsGraph"), graph, (node) => {
       if (node.kind === "evidence") {
         const epoch = generation;
         host.request(`/api/v1/evidence/${encodeURIComponent(node.id)}`).then((res) => {
@@ -246,5 +246,5 @@
     document.addEventListener("visibilitychange", () => { cancelTimer(); if (visible()) refresh(); });
     window.addEventListener("pagehide", cancelTimer);
   }
-  window.RedGateWorkspace = { init, refresh, reset };
+  window.RedstrikeWorkspace = { init, refresh, reset };
 })();

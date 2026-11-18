@@ -1,5 +1,5 @@
 # =============================================================================
-# RedGate Scope & Allowlist Configuration
+# Redstrike Scope & Allowlist Configuration
 # Separated from tool, script, and LLM configs for independent RoE sign-off.
 # Replace placeholder RFC 5737 / RFC 2606 entries with signed engagement scopes.
 # =============================================================================

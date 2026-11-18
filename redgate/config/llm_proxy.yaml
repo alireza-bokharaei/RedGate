@@ -1,5 +1,5 @@
 # =============================================================================
-# RedGate LLM Proxy Gateway Configuration
+# Redstrike LLM Proxy Gateway Configuration
 # Enforces token/call quotas, rate limiting, secret scrubbing, and restricted
 # system/user prompt templates. Supports OpenAI-compatible local/cloud models
 # (Ollama, vLLM, LiteLLM, OpenAI) plus deterministic offline mock mode.
@@ -48,7 +48,7 @@ secret_scrubbing:
 
 restricted_prompt_template:
   system: |
-    You are an internal security verification script generator operating inside RedGate.
+    You are an internal security verification script generator operating inside Redstrike.
     STRICT NON-NEGOTIABLE RULES:
     1. Generate ONLY a benign, read-only security verification script in {language}.
     2. NEVER generate exploit payloads, brute-force routines, denial-of-service loops,

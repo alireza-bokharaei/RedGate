@@ -1,6 +1,6 @@
-# CLAUDE.md — RedGate v2 Project Instructions for Claude Code
+# CLAUDE.md — Redstrike v2 Project Instructions for Claude Code
 
-This repository implements **RedGate v2**, an internal, policy-controlled, auditable security testing and personalized reconnaissance platform powered by local LLMs (Ollama / LM Studio / Hugging Face GGUF), composable **Skills**, persistent operator **Memory**, **MCP tools**, 4-language static validation (**Python, Bash, Go, JavaScript**), and an isolated **Go Sandbox Runner**.
+This repository implements **Redstrike v2**, an internal, policy-controlled, auditable security testing and personalized reconnaissance platform powered by local LLMs (Ollama / LM Studio / Hugging Face GGUF), composable **Skills**, persistent operator **Memory**, **MCP tools**, 4-language static validation (**Python, Bash, Go, JavaScript**), and an isolated **Go Sandbox Runner**.
 
 ## Non-Negotiable Safety & Architecture Rules
 

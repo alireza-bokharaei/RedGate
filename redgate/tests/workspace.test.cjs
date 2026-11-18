@@ -32,7 +32,7 @@ function consoleFixture() {
     });
   }
   document.hidden = false;
-  window.RedGateGraph = graph;
+  window.RedstrikeGraph = graph;
   const timers = new Map(), calls = [], downloads = [];
   let counter = 0, data = snapshot(), handler = null;
   let context = { engagementId: "ENG-A", operatorId: "owner", role: "operator", skills: [{ skill_id: "web-surface-audit", name: "Header check", enabled: true }] };
@@ -53,7 +53,7 @@ function consoleFixture() {
     setTimeout(fn, duration) { const id = ++counter; timers.set(id, { fn, duration }); return id; },
     clearTimeout(id) { timers.delete(id); },
   });
-  const controller = window.RedGateWorkspace;
+  const controller = window.RedstrikeWorkspace;
   controller.init(adapter);
   return { controller, window, document, calls, timers, downloads,
     setHandler(value) { handler = value; }, setContext(value) { context = { ...context, ...value }; },

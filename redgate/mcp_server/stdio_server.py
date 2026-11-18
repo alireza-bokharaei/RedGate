@@ -1,6 +1,6 @@
 """Standard MCP JSON-RPC 2.0 stdio server entrypoint (compatible with Claude Code).
 
-Exposes policy-enabled RedGate recon tools and `list_recon_skills` over newline-delimited
+Exposes policy-enabled Redstrike recon tools and `list_recon_skills` over newline-delimited
 JSON-RPC 2.0 stdio while strictly enforcing `config/allowlist.yaml`, parameter whitelists,
 and `config/tool_policy.yaml` (medium/high-risk tools still require Two-Person Gateway approval).
 """
@@ -81,7 +81,7 @@ def list_exposed_tools() -> list[dict[str, Any]]:
     tools.append(
         {
             "name": "list_recon_skills",
-            "description": "List declarative RedGate recon & triage Skills available in skills/*.yaml.",
+            "description": "List declarative Redstrike recon & triage Skills available in skills/*.yaml.",
             "inputSchema": {"type": "object", "additionalProperties": False, "properties": {}},
         }
     )
@@ -123,7 +123,7 @@ async def dispatch_tool_call(name: str, arguments: dict[str, Any] | None) -> dic
                     "type": "text",
                     "text": (
                         f"APPROVAL_REQUIRED: '{name}' requires Two-Person approval via "
-                        "RedGate Gateway POST /api/v1/scan."
+                        "Redstrike Gateway POST /api/v1/scan."
                     ),
                 }
             ],

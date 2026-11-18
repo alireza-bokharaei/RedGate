@@ -81,7 +81,7 @@ class FakeSandbox:
             "method": kwargs["method"],
             "connected_ip": kwargs["pinned_ips"][0],
             "status_code": 200,
-            "request_headers": {"user-agent": "RedGate"},
+            "request_headers": {"user-agent": "Redstrike"},
             "response_headers": {
                 "content-type": "application/json",
                 "x-content-type-options": "nosniff",

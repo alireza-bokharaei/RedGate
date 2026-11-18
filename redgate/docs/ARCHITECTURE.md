@@ -1,4 +1,4 @@
-# RedGate 2.1 Architecture and Data Integrity
+# Redstrike 2.1 Architecture and Data Integrity
 
 ## Components and boundaries
 

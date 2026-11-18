@@ -1,4 +1,4 @@
--- RedGate 2.1.0: additive migration. Existing v2 runs, findings, policies and
+-- Redstrike 2.1.0: additive migration. Existing v2 runs, findings, policies and
 -- audit entries are deliberately left untouched. Applied transactionally.
 
 CREATE TABLE workspace_assets (

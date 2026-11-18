@@ -7,7 +7,7 @@ cd "$ROOT_DIR"
 
 usage() {
   cat <<'HELP'
-RedGate 2.1 operations (Docker Compose v2.20+)
+Redstrike 2.1 operations (Docker Compose v2.20+)
   redgate.sh up [--lite|--full]  Build and start; wait for healthchecks
   redgate.sh down               Stop services; KEEP named volumes and evidence
   redgate.sh status             Show containers, then gateway readiness
@@ -49,12 +49,12 @@ case "$command_name" in
     esac
     "${compose[@]}" config --quiet
     "${compose[@]}" up -d --build --wait --wait-timeout 180
-    printf '[RedGate] Services healthy. Use your private operator Bearer token to sign in.\n'
+    printf '[Redstrike] Services healthy. Use your private operator Bearer token to sign in.\n'
     ;;
   down)
     [[ $# -eq 0 ]] || { usage >&2; exit 2; }
     "${compose[@]}" down
-    printf '[RedGate] Persistent volumes retained. Never use down --volumes to upgrade.\n'
+    printf '[Redstrike] Persistent volumes retained. Never use down --volumes to upgrade.\n'
     ;;
   status)
     [[ $# -eq 0 ]] || { usage >&2; exit 2; }

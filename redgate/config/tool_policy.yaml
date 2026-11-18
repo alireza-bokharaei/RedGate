@@ -1,5 +1,5 @@
 # =============================================================================
-# RedGate Tool Policy Configuration
+# Redstrike Tool Policy Configuration
 # Controls MCP tool availability, parameter whitelists, timeouts, and approvals.
 # High-risk tools are DISABLED by default and enforce two-person approval.
 # =============================================================================

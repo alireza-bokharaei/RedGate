@@ -1,4 +1,4 @@
-# RedGate 2.1.0 — Verification Record
+# Redstrike 2.1.0 — Verification Record
 
 Verified locally and in GitHub CI on **2026-11-18**. This record distinguishes executed local checks, the linked remote CI result and remaining deployment work. It is not a security certification or a performance benchmark.
 
@@ -78,13 +78,13 @@ Terminal B, from `redgate/`:
 REDGATE_CHROMIUM_EXECUTABLE=/usr/bin/chromium npm run test:browser
 ```
 
-Adjust the executable path to your approved installation. In the implementation sandbox the Chromium binary/shared libraries were temporarily obtained via the npm `@sparticuz/chromium` package, with `LD_LIBRARY_PATH`/`FONTCONFIG_PATH` set for that package; those binaries/libraries are **not shipped** with RedGate. Screenshots/report are written to ignored `test-results/browser/`. Stop the launcher and securely remove the disposable lab data when finished. Never expose demo login as a deployment.
+Adjust the executable path to your approved installation. In the implementation sandbox the Chromium binary/shared libraries were temporarily obtained via the npm `@sparticuz/chromium` package, with `LD_LIBRARY_PATH`/`FONTCONFIG_PATH` set for that package; those binaries/libraries are **not shipped** with Redstrike. Screenshots/report are written to ignored `test-results/browser/`. Stop the launcher and securely remove the disposable lab data when finished. Never expose demo login as a deployment.
 
 The reproducible smoke test is for a **direct host** stack, not Compose: container loopback is a different network endpoint. For a restricted demo matching the run above, use a copied config with only the loopback engagement and disabled script policies. The normal local config can exercise additional approved adapter steps, subject to installed tools/timeouts; these are not required to establish the native evidence UI flow.
 
 ## Executed GitHub CI
 
-[Run **44288999257**](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) completed with **success** on 2026-11-18 for source commit [`763da1108e773bdee6bdadb4d84d0ad4c1f9eaad`](https://github.com/alireza-bokharaei/RedGate/commit/763da1108e773bdee6bdadb4d84d0ad4c1f9eaad) in [PR #1](https://github.com/alireza-bokharaei/RedGate/pull/1). The workflow ran on Ubuntu 24.04 runners:
+[Run **44288999257**](https://github.com/alireza-bokharaei/Redstrike/actions/runs/44288999257) completed with **success** on 2026-11-18 for source commit [`763da1108e773bdee6bdadb4d84d0ad4c1f9eaad`](https://github.com/alireza-bokharaei/Redstrike/commit/763da1108e773bdee6bdadb4d84d0ad4c1f9eaad) in [PR #1](https://github.com/alireza-bokharaei/Redstrike/pull/1). The workflow ran on Ubuntu 24.04 runners:
 
 | Job | Observed result |
 |---|---|

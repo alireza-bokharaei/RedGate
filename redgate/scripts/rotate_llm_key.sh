@@ -28,5 +28,5 @@ chmod 640 "$TMP_FILE"
 NEW_FP="$(sha256sum "$TMP_FILE" | awk '{print substr($1,1,12)}')"
 mv -f -- "$TMP_FILE" "$SECRET_FILE"
 trap - EXIT
-printf '[RedGate] LLM key rotated (%s -> %s) at %s. Revoke the old provider key separately.\n' \
+printf '[Redstrike] LLM key rotated (%s -> %s) at %s. Revoke the old provider key separately.\n' \
   "$OLD_FP" "$NEW_FP" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

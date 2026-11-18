@@ -6,7 +6,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 FROM python:3.12-slim-bookworm
 ARG REDGATE_VERSION=2.1.0
-LABEL org.opencontainers.image.title="RedGate MCP Tools" \
+LABEL org.opencontainers.image.title="Redstrike MCP Tools" \
       org.opencontainers.image.version="${REDGATE_VERSION}"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 RUN apt-get update && apt-get install -y --no-install-recommends dnsutils nmap ca-certificates \

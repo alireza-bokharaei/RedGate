@@ -1,5 +1,5 @@
 # =============================================================================
-# RedGate Multi-Language Script Validation & Sandbox Policy
+# Redstrike Multi-Language Script Validation & Sandbox Policy
 # Applies to ALL AI-generated and operator-submitted scripts (Python/Bash/Go/JS).
 # Scripts are treated as UNTRUSTED: static validation + isolated Go sandbox.
 # =============================================================================

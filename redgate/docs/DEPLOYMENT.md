@@ -6,7 +6,7 @@ Use Linux with Docker Engine, Compose v2.20+ and BuildKit. Build/pull access to 
 
 The default stack runs **one** gateway, MCP and runner. Only gateway port 8000 is published, on `127.0.0.1`. `control_net` is internal; `target_egress_net` and `llm_egress_net` provide routing, **not destination filtering**. Before live work, enforce and test default-deny IPv4/IPv6 egress outside the containers for both MCP and runner, permitting only signed targets and explicitly required control/inference connections. Use a stronger per-job isolation boundary for hostile scripts. Do not use host networking, privileged containers, a Docker socket mount or multiple gateway workers.
 
-Docker is not available in the implementation sandbox. Subsequent [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) passed full/lite builds, startup/readiness and capability checks, and built the evidence-only target. This controlled run does not establish intended-host resource enforcement or hostile-code containment. Perform staged adapter, native-collector, scope/egress-denial and restore checks on your deployment before production; see the [verification record](VERIFICATION_2.1.0.md).
+Docker is not available in the implementation sandbox. Subsequent [GitHub CI](https://github.com/alireza-bokharaei/Redstrike/actions/runs/44288999257) passed full/lite builds, startup/readiness and capability checks, and built the evidence-only target. This controlled run does not establish intended-host resource enforcement or hostile-code containment. Perform staged adapter, native-collector, scope/egress-denial and restore checks on your deployment before production; see the [verification record](VERIFICATION_2.1.0.md).
 
 ## 2. First deployment
 
@@ -85,7 +85,7 @@ Then configure, for example, `setup_local_llm.sh --compose --base-url http://hos
 
 Rotation prompts without echo, writes a restricted temporary file, then atomically replaces `secrets/llm_api_key`. The **directory** is mounted, so subsequent requests see the new inode. The configured key file takes precedence over the environment fallback when it exists. No restart is required for new requests; already-dispatched requests may still use the old key. Revoke the old provider credential separately after checking service health. Do not print tokens in logs or command arguments.
 
-## 5. Upgrade from the existing RedGate v2 schema
+## 5. Upgrade from the existing Redstrike v2 schema
 
 1. Stop accepting new mission work and pause/cancel ongoing activity. Record the current deployment artifacts/config and verify the existing audit chain.
 2. Make a **consistent backup** and protect it off-host:
@@ -118,4 +118,4 @@ docker stats --no-stream
 
 Monitor restarts, memory/pids, disk/WAL growth, task warnings, audit integrity and backup age. Audit verification scans the ledger and is more expensive than `/healthz`. Retention/export encryption and independent audit anchoring are operator-managed.
 
-For a fair `full` vs `lite` comparison record image IDs/digests, architecture, cold/warm cache state, build times, image sizes, readiness latency and idle/loaded RSS/CPU on the **same** host and workload. No such benchmark is claimed for this release. The optional `postgres` profile only provisions a database container; RedGate still persists to SQLite and has no PostgreSQL migration/driver support.
+For a fair `full` vs `lite` comparison record image IDs/digests, architecture, cold/warm cache state, build times, image sizes, readiness latency and idle/loaded RSS/CPU on the **same** host and workload. No such benchmark is claimed for this release. The optional `postgres` profile only provisions a database container; Redstrike still persists to SQLite and has no PostgreSQL migration/driver support.

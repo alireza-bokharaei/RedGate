@@ -61,7 +61,7 @@ else ln -- "$TMP_ENV" "$ENV_FILE"; rm -f -- "$TMP_ENV"; fi
 trap - EXIT
 cat <<EOF
 =====================================================================
- RedGate 2.1.0 initialized. SAVE THESE PRIVATE BEARER TOKENS NOW.
+ Redstrike 2.1.0 initialized. SAVE THESE PRIVATE BEARER TOKENS NOW.
  Only their SHA-256 hashes are stored in .env (0600).
 =====================================================================
   op-alice    (operator) : ${TOK_ALICE}
