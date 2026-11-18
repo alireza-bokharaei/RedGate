@@ -1,45 +1,61 @@
-# RedGate 2.1.0
+# RedGate | دروازهٔ سرخ
 
-**Governed Mission Workspace · فضای کاری مأموریت‌های امنیتیِ مجاز**
+**ارزیابی امنیتیِ مجاز، کنترل‌شده و قابل‌بررسی**
 
-[فارسی](#fa) · [English](#en) · [Technical guide](redgate/README.md) · [Verification record](redgate/docs/VERIFICATION_2.1.0.md)
+**Authorized security assessment with policy controls and an auditable workflow**
+
+نسخه / Version **2.1.0** · **Python · Bash · Go · JavaScript · Docker**
+
+[فارسی](#fa) · [English](#en) · [راهنمای فنی / Technical guide](redgate/README.md)
 
 ---
 
 <a id="fa"></a>
-<div dir="rtl">
+<div dir="rtl" lang="fa">
 
 ## فارسی
 
-RedGate سکویی برای **ارزیابی امنیتی مجاز و محدود، با تأیید انسانی و ثبت رویداد قابل‌بررسی** است. نسخهٔ **۲٫۱٫۰** مدیریت مأموریت، گراف دارایی و مسیر بررسی، شواهد HTTP و بازآزمایی محدود یافته‌ها را به معماری موجود اضافه می‌کند؛ بدون کنارگذاشتن محدودهٔ مجاز، بازهٔ **قواعد درگیری (RoE)**، سهمیه‌ها و تأیید دونفره.
+### دروازهٔ سرخ چیست؟
 
-> **فقط استفادهٔ مجاز:** پیش از هر بررسی، مجوز کتبی مالک دارایی و محدودهٔ فعال لازم است. دیدن داشبورد یا ذخیرهٔ برنامه، اسکن را شروع نمی‌کند. خروجی مدل و اسکریپت تولیدشده قابل‌اعتماد فرض نمی‌شوند. [سیاست امنیتی](redgate/SECURITY.md) و [محدودیت‌ها](redgate/LIMITATIONS.md) را بخوانید.
+**دروازهٔ سرخ (RedGate)** فضای کاری یکپارچه‌ای برای برنامه‌ریزی، اجرای محدود و مستندسازی ارزیابی‌های امنیتیِ مجاز است. اپراتور می‌تواند محدودهٔ یک ارزیابی را تعیین کند، مأموریت بسازد، بررسی‌های فقط‌خواندنی انجام دهد، شواهد HTTP جمع‌آوری کند و نتیجه را برای بازبینی انسانی نگه دارد.
 
-### قابلیت‌های نسخهٔ ۲٫۱
+در این پروژه، مدل زبانی جایگزین مجوز مالک دارایی یا تصمیم تحلیلگر نیست. درخواست‌ها از درگاه کنترل سیاست عبور می‌کنند؛ دسترسی اپراتور، محدودهٔ هدف، بازهٔ قواعد درگیری یا **RoE**، سهمیه و سیاست ابزارها در همان مسیر بررسی می‌شوند. **مشاهدهٔ داشبورد یا ذخیرهٔ برنامه به‌تنهایی اسکن را شروع نمی‌کند.**
 
-- **مأموریت ماندگار:** برنامه‌ریزی، شروع صریح، توقف موقت، ادامه و لغو، همراه با بودجهٔ اقدام، مهلت مطلق، checkpoint و گزارش Markdown/JSON. راه‌اندازی مجدد، کار را خودکار ادامه نمی‌دهد.
-- **دو گراف:** موجودی دارایی‌های هر engagement و مسیر هدف ← اقدام ← بررسی ← یافته/شواهد/بازآزمایی. کشف دارایی به معنای آزمایش یا امن‌بودن آن نیست.
-- **شواهد HTTP با Go:** درخواست ناشناس و محدود HEAD/GET، اتصال به IP تأییدشده با حفظ Host/SNI، بررسی گواهی TLS و عدم دنبال‌کردن redirect. پیش‌فرض HEAD و عدم ذخیرهٔ بدنه است؛ پیش‌نمایش متنی اختیاری حداکثر ۸ کیبی‌بایت و پالایش آن الگو‌محور است.
-- **بازآزمایی محتاطانه:** فقط بررسی هدرهای امنیتیِ پشتیبانی‌شده در endpoint اصلی؛ نتیجه به تاریخچه اضافه می‌شود و نظر تحلیلگر یا مدرک قبلی تغییر نمی‌کند.
-- **کنسول JavaScript:** گراف SVG با کنترل صفحه‌کلید، نمایش امن متن، چیدمان موبایل و کنارگذاشتن پاسخ‌های قدیمی پس از تغییر هویت یا engagement؛ بدون CDN یا سرور جداگانهٔ فرانت‌اند در زمان اجرا.
-- **عملیات و بسته‌بندی:** ابزارهای Bash، وابستگی‌های قفل‌شده، پشتیبان‌گیری سازگار با SQLite WAL، چرخش کلید، Docker چندمرحله‌ای و گردش‌کار CI. قابلیت‌های قبلی Skills، حافظهٔ محدود به engagement، مدل محلی، اعتبارسنجی چهار زبان و زنجیرهٔ audit حفظ شده‌اند.
+> **فقط استفادهٔ قانونی و مجاز:** پیش از تماس با هر هدف، مجوز کتبی و محدودهٔ معتبر داشته باشید. تنظیمات نمونه، مجوز آزمایش دارایی‌های واقعی نیستند. [سیاست امنیتی](redgate/SECURITY.md) و [محدودیت‌های اجرایی](redgate/LIMITATIONS.md) را پیش از استقرار بخوانید.
 
-### فناوری‌ها
+### قابلیت‌ها
 
-- **Python / FastAPI:** درگاه سیاست‌گذاری، API، احراز هویت، مأموریت‌ها و کنترل خروجی مدل.
-- **Go:** جمع‌آورندهٔ بومی شواهد و runner محدودکنندهٔ فرایندها.
-- **JavaScript / SVG:** رابط وب، گراف‌ها و ابزار اعتبارسنجی/تست.
-- **Bash:** راه‌اندازی، اعتبارنامه‌ها، پشتیبان‌گیری و بررسی یکپارچه.
-- **Docker Compose:** بسته‌بندی سرویس‌ها و تفکیک شبکه‌های کنترل، هدف و inference؛ پایگاه دادهٔ برنامه همچنان **SQLite** است.
+- **مدیریت مأموریت:** برنامه‌ریزی و شروع صریح، توقف موقت، ادامه و لغو؛ همراه با بودجهٔ اقدام، مهلت مطلق و ذخیرهٔ پیشرفت. پس از راه‌اندازی مجدد، ادامهٔ تماس با هدف نیازمند اقدام صریح اپراتور است.
+- **گراف دارایی و مسیر بررسی:** نمایش موجودی هر ارزیابی و ارتباط میان هدف، اقدام، بررسی، یافته، مدرک و بازآزمایی در رابط SVG با کنترل صفحه‌کلید.
+- **شواهد HTTP:** جمع‌آورندهٔ بومی Go برای HEAD/GET ناشناس، اتصال به IP تأییدشده با حفظ Host و TLS SNI و بررسی گواهی. هدرهای احراز هویت داخلی یا کوکی به هدف فرستاده نمی‌شوند و redirect دنبال نمی‌شود.
+- **بازآزمایی یافته‌ها:** تکرار بررسی هدرهای امنیتیِ پشتیبانی‌شده در همان endpoint اصلی. نتیجه به تاریخچه افزوده می‌شود؛ مدرک قبلی و نظر تحلیلگر بازنویسی نمی‌شوند.
+- **گردش‌کارهای Skills و حافظه:** تعریف زنجیرهٔ بررسی‌ها در YAML و نگهداری یادداشت‌ها در محدودهٔ همان ارزیابی.
+- **مدل زبانی قابل‌پیکربندی:** پشتیبانی از Ollama و LM Studio، انتخاب مدل و تنظیمات runtime. حالت پیش‌فرض `mock` بدون دانلود مدل یا فراخوانی سرویس هوش مصنوعی کار می‌کند.
+- **کنترل اجرای اسکریپت:** اعتبارسنجی Python، Bash، Go و JavaScript، کنترل SHA-256 و اجرای محدود فرایندها؛ همراه با سیاست ابزار، سهمیه، نقش‌ها و مسیر تأیید دونفره برای عملیات مشمول تأیید.
+- **گزارش و عملیات:** خروجی Markdown/JSON، سوابق audit زنجیره‌هش‌شده، پشتیبان‌گیری سازگار با SQLite WAL، چرخش کلید و ابزارهای Bash برای مدیریت سرویس‌ها.
 
-### شروع سریع با Docker
+### معماری و فناوری‌ها
 
-پیش‌نیاز: Linux، Docker Engine، Compose نسخهٔ ۲٫۲۰ به بالا و BuildKit. پس از دریافت کد این نسخه، از ریشهٔ مخزن اجرا کنید:
+| بخش | مسئولیت |
+|---|---|
+| **رابط وب — JavaScript و SVG** | کنسول اپراتور، مأموریت‌ها، گراف‌ها، شواهد و گزارش؛ بدون CDN یا سرور جداگانهٔ فرانت‌اند در زمان اجرا |
+| **Gateway — Python / FastAPI** | API، احراز هویت، محدوده و RoE، سیاست‌ها، هماهنگی مأموریت و اعتبارسنجی خروجی مدل |
+| **MCP — Python** | سرویس داخلی ابزارها با احراز هویت و ورودی محدود |
+| **Runner — Go** | جمع‌آوری بومی شواهد HTTP و اجرای محدود اسکریپت‌های تأییدشده |
+| **SQLite** | داده‌های ارزیابی، حافظه، پیشرفت مأموریت، شواهد و سوابق؛ همراه با WAL و migrationهای افزایشی |
+| **Bash و Docker Compose** | راه‌اندازی، اعتبارنامه، پشتیبان‌گیری، بسته‌بندی و تفکیک شبکه‌های کنترل، هدف و inference |
+
+پیکربندی فعلی برای **یک فرایند Gateway به‌ازای هر پایگاه دادهٔ SQLite** است، نه زمان‌بند توزیع‌شده. پروفایل اختیاری PostgreSQL در Compose صرفاً سرویس پایگاه داده را ایجاد می‌کند و backend برنامه را تغییر نمی‌دهد.
+
+### نصب و راه‌اندازی با Docker
+
+پیش‌نیازها: **Linux، Git، Docker Engine، Docker Compose نسخهٔ ۲٫۲۰ یا بالاتر و BuildKit**. اسکریپت ساخت اعتبارنامه به OpenSSL یا Python 3 نیز نیاز دارد.
 
 <div dir="ltr">
 
 ```bash
-cd redgate
+git clone https://github.com/alireza-bokharaei/RedGate.git
+cd RedGate/redgate
 ./scripts/bootstrap_env.sh
 ./scripts/redgate.sh doctor
 ./scripts/redgate.sh up --full
@@ -47,29 +63,76 @@ cd redgate
 
 </div>
 
-Bootstrap توکن‌های خصوصی اپراتورها را فقط یک‌بار نمایش می‌دهد؛ آن‌ها را امن نگه دارید. در **http://127.0.0.1:8000** با دکمهٔ **Token** وارد شوید؛ مستندات API در `/docs` است. Compose ورود demo را خاموش می‌کند و فقط پورت درگاه را روی loopback منتشر می‌کند. برای دسترسی راه دور، TLS و کنترل دسترسی شبکه لازم است.
+اگر مخزن را از قبل دریافت کرده‌اید، از ریشهٔ آن وارد پوشهٔ `redgate/` شوید. اسکریپت `bootstrap_env.sh` برای راه‌اندازی اولیه است؛ فایل `.env` موجود را بدون `--force` جایگزین نمی‌کند. **از `--force` برای ارتقای معمول استفاده نکنید؛ همهٔ توکن‌های اپراتور و سرویس را عوض می‌کند.**
+
+1. توکن‌های خصوصی نمایش‌داده‌شده را همان بار اول در محل امن ذخیره کنید؛ فقط هش توکن‌های اپراتور در `.env` می‌ماند.
+2. آدرس **http://127.0.0.1:8000** را باز کنید و از دکمهٔ **Token** وارد شوید.
+3. پیش از بررسی واقعی، محدوده و زمان اعتبار را در `config/allowlist.yaml` و دسترسی‌ها را در `config/operators.yaml` با مجوز خود تطبیق دهید.
+4. مستندات تعاملی API در `/docs` است. مسیرهای `/healthz` و `/readyz` برای بررسی سرویس در دسترس‌اند.
+
+Compose فقط پورت Gateway را روی loopback میزبان منتشر و ورود demo را غیرفعال می‌کند. MCP و Runner پورت عمومی ندارند. دسترسی راه دور باید پشت TLS و کنترل دسترسی شبکه قرار بگیرد.
+
+### حالت‌های اجرا و فرمان‌های روزمره
+
+| حالت | کاربرد و محدودیت |
+|---|---|
+| **`full`** | حالت پیش‌فرض؛ شامل ابزارهای اعتبارسنجی و اجرای هر چهار زبان |
+| **`lite`** | شامل ابزارهای اسکریپت Python/Bash و جمع‌آورندهٔ بومی Go؛ بدون اعتبارسنجی یا اجرای اسکریپت Go/JavaScript |
+| **`evidence`** | هدف ساخت جداگانهٔ Runner که اجرای اسکریپت را رد می‌کند؛ حالت کامل Compose نیست |
 
 <div dir="ltr">
 
 ```bash
 ./scripts/redgate.sh up --lite
 ./scripts/redgate.sh status
+./scripts/redgate.sh logs gateway
 ./scripts/redgate.sh backup
 ./scripts/redgate.sh down
 ```
 
 </div>
 
-- **full:** تعریف image شامل ابزارهای اعتبارسنجی و اجرای هر چهار زبان است.
-- **lite:** ابزارهای Go/Node برای اسکریپت‌ها را حذف می‌کند، نه کنترل‌های سیاست یا جمع‌آوری بومی شواهد را؛ Skillهای وابسته به Go/JS کامل اجرا نمی‌شوند.
-- **evidence:** هدف ساخت جداگانهٔ runner است که اجرای اسکریپت را رد می‌کند؛ یک flavor کامل Compose نیست.
-- فرمان `down` داده‌های named volume را نگه می‌دارد؛ برای ارتقا از `down --volumes` استفاده نکنید.
+فرمان `logs` تا Ctrl+C باز می‌ماند. پشتیبان، snapshot سازگار SQLite را به‌صورت gzip با دسترسی `0600` در `backups/` ذخیره می‌کند. فرمان `down` داده‌های named volume را نگه می‌دارد. **برای ارتقا از `down --volumes` استفاده نکنید.** پیش از ارتقا، پشتیبان بگیرید و فرایند بازیابی را در محیط آزمایشی بررسی کنید.
 
-**وضعیت Docker:** daemon محلی در دسترس نبود؛ اما [بررسی GitHub برای commit `763da11`](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) موفق شد: ساخت و راه‌اندازی `full` و `lite`، بررسی readiness و قابلیت‌های نصب‌شده، و ساخت هدف `evidence`. این بررسی کنترل‌شده جای تأیید محیط تولید، جداسازی کد متخاصم یا سنجش منابع را نمی‌گیرد. **هیچ کاهش اندازه یا افزایش سرعتِ اندازه‌گیری‌شده‌ای ادعا نمی‌شود.** [راهنمای استقرار و ارتقا](redgate/docs/DEPLOYMENT.md).
+### جریان یک ارزیابی
 
-### توسعه و بررسی محلی
+1. **تعریف محدوده:** مجوز، اهداف، بازهٔ RoE، نقش‌ها، سهمیه و سیاست ابزارها را بازبینی کنید.
+2. **برنامه‌ریزی:** ارزیابی یا engagement مجاز را انتخاب و مأموریت را با هدف، Skill و بودجهٔ محدود ذخیره کنید.
+3. **شروع صریح:** مأموریت را شروع کنید؛ وضعیت، پیشرفت و مسیر بررسی در کنسول قابل مشاهده است.
+4. **بازبینی شواهد:** یافته‌ها، هدرها، پیش‌نمایش مجاز و ارتباطات گراف را بررسی کنید. وجود یک دارایی در گراف، اثبات بررسی‌شدن یا امن‌بودن آن نیست.
+5. **بازآزمایی و گزارش:** بررسی‌های پشتیبانی‌شده را با تصمیم صریح تکرار و گزارش Markdown یا JSON را برای تحلیل انسانی دریافت کنید.
 
-برای بررسی کامل به Python ۳٫۱۱ به بالا، Go ۱٫۲۲ به بالا، Node ۲۲٫۱۳ به بالا و ShellCheck نیاز دارید. از ریشهٔ مخزن:
+هر مأموریت **۱ تا ۸ میزبان**، **۱ تا ۶۴ اقدام** با پیش‌فرض ۲۴، و **۱۰ تا ۱۸۰۰ ثانیه** با پیش‌فرض ۳۰۰ می‌پذیرد. هم‌زمان حداکثر **دو مأموریت در کل سامانه و یک مأموریت برای هر مالک** اجرا می‌شود. توقف موقت، مهلت را تمدید نمی‌کند و بودجهٔ اقدام رزروشده یا ناموفق بازگردانده نمی‌شود.
+
+### مدل زبانی محلی
+
+برای نوشتن تنظیمات اولیهٔ Ollama قابل‌دسترسی از Compose، بعد از bootstrap و از پوشهٔ `redgate/`:
+
+<div dir="ltr">
+
+```bash
+./scripts/setup_local_llm.sh --compose ollama
+```
+
+</div>
+
+این فرمان **وزن مدل را دانلود و سرویس inference را راه‌اندازی نمی‌کند**. دریافت مدل فقط با گزینهٔ صریح `--pull` انجام می‌شود و ممکن است چندین گیگابایت باشد. راهنما و گزینه‌ها:
+
+<div dir="ltr">
+
+```bash
+./scripts/setup_local_llm.sh --help
+```
+
+</div>
+
+برای Gateway روی میزبان از `--local` استفاده کنید. LM Studio در Compose به `--base-url` قابل‌دسترسی از داخل کانتینر و تنظیم مسیریابی میزبان نیاز دارد؛ `127.0.0.1` داخل کانتینر، میزبان شما نیست.
+
+تنظیمات runtime ذخیره‌شده در SQLite بر مقادیر اولیهٔ `.env` اولویت دارند. برای پایگاه دادهٔ موجود، تنظیمات را از بخش **Local AI → Runtime** به‌روز کنید. اجرای واقعاً محلی به endpoint محلی، وزن‌های از قبل آماده و منابع سخت‌افزاری کافی نیاز دارد؛ مجوز و اندازهٔ مدل را جداگانه بررسی کنید.
+
+### توسعه و تست
+
+برای مجموعهٔ کامل بررسی‌ها به **Python 3.11+، Go 1.22+، Node.js 22.13+ و ShellCheck** نیاز دارید. از ریشهٔ مخزن:
 
 <div dir="ltr">
 
@@ -85,35 +148,28 @@ npm ci --ignore-scripts
 
 </div>
 
-راه‌انداز محلی به‌طور پیش‌فرض loopback، مدل mock و اعتبارنامهٔ موقت خصوصی دارد؛ `.env` را خودکار به shell وارد نمی‌کند. اجرای مستقیم روی میزبان، مرز جداسازی کد متخاصم نیست. حالت `REDGATE_DEMO_MODE=true` فقط برای آزمایشگاه خصوصی است؛ هر فردی که به آن gateway دسترسی داشته باشد می‌تواند هویت آزمایشی بگیرد.
+`verify.sh` شامل بررسی Bash/ShellCheck، نحو JavaScript و ESLint، تست‌های رابط، تست race و vet و build در Go، Ruff و مجموعهٔ تست‌های Python است. اعتبارسنجی Compose فقط در صورت وجود ابزار و `.env` انجام می‌شود؛ این اسکریپت به‌تنهایی ساخت و اجرای کانتینر را اثبات نمی‌کند.
 
-### مدل محلی
+راه‌انداز محلی به‌طور پیش‌فرض loopback، حالت `mock` و اعتبارنامهٔ موقت خصوصی دارد؛ مسیر فایل توکن‌ها را چاپ می‌کند و `.env` را خودکار به shell وارد نمی‌کند. این اجرا جای جداسازی میزبان را نمی‌گیرد. حالت `REDGATE_DEMO_MODE=true` فقط برای آزمایشگاه خصوصی است؛ هر فردی که به چنین Gatewayای دسترسی داشته باشد می‌تواند هویت آزمایشی بگیرد.
 
-پیش‌فرض **mock** است؛ مدل یا درخواست خارجی لازم ندارد. برای نوشتن تنظیمات اولیهٔ Ollama در Compose، بدون دریافت وزن مدل:
+### مرزهای امنیتی و عملیاتی
 
-<div dir="ltr">
+- Runner، sandbox کامل سیستم‌عامل یا ماشین مجازی نیست. پیش از اجرای کد نامطمئن، به جداسازی مناسب و سیاست خروجی مستقلِ **default-deny برای IPv4 و IPv6** نیاز دارید. شبکه‌های Compose به‌تنهایی firewall مقصد نیستند و RedGate قوانین پیشنهادی firewall را نصب نمی‌کند.
+- شواهد به‌طور پیش‌فرض با **HEAD و بدون بدنه** ذخیره می‌شوند. پیش‌نمایش متنی فقط با GET صریح و حداکثر **۸ کیبی‌بایت** است. پالایش الگو‌محور، حذف همهٔ اسرار و اطلاعات شخصی را تضمین نمی‌کند.
+- SHA-256 مدرک، همان نمای **ذخیره‌شده و پالایش‌شده** را کنترل می‌کند، نه اصالت بستهٔ خام شبکه. حفاظت از میزبان، پایگاه داده و پشتیبان‌ها همچنان لازم است.
+- `not_observed` به معنای رفع قطعی آسیب‌پذیری نیست. شناسایی، اهمیت کسب‌وکاری و نتیجهٔ نهایی باید توسط انسان بازبینی شوند.
+- لغو، درخواست قبلاً ارسال‌شده را پس نمی‌گیرد. پس از وقفه ممکن است اقدام بدون checkpoint تکرار شود؛ اجرای شبکه تضمین exactly-once ندارد.
+- مقدارهای محدودیت منابع در Compose، سنجش کارایی نیستند. برای میزبان واقعی، منابع، جداسازی، بازیابی و مدل inference را جداگانه آزمایش کنید؛ کاهش اندازه یا افزایش سرعتِ اندازه‌گیری‌نشده ادعا نمی‌شود.
 
-```bash
-./scripts/setup_local_llm.sh --compose ollama
-```
+### مستندات و مجوز
 
-</div>
+- [راهنمای فنی و API](redgate/README.md)
+- [معماری و یکپارچگی داده](redgate/docs/ARCHITECTURE.md)
+- [استقرار، پشتیبان‌گیری، ارتقا و بازیابی](redgate/docs/DEPLOYMENT.md)
+- [گزارش بررسی‌ها و روش تکرار تست مرورگر](redgate/docs/VERIFICATION_2.1.0.md)
+- [امنیت](redgate/SECURITY.md) · [محدودیت‌ها](redgate/LIMITATIONS.md) · [گردش‌کارهای CI](.github/workflows/verify.yml)
 
-دریافت مدل فقط با `--pull` صریح انجام می‌شود و ممکن است چندین گیگابایت باشد. تنظیمات runtime ذخیره‌شده در SQLite بر پیش‌فرض‌های `.env` اولویت دارند؛ برای پایگاه دادهٔ موجود، بخش مدیریتی **Local AI → Runtime** را به‌روز کنید. آدرس loopback میزبان از داخل کانتینر قابل‌جایگزینی با سرویس Ollama نیست؛ راهنمای فنی، تنظیمات شبکهٔ میزبان و کانتینر را جدا توضیح می‌دهد.
-
-### ایمنی، ظرفیت و وضعیت بررسی
-
-- هر مأموریت: **۱ تا ۸ میزبان، ۱ تا ۶۴ اقدام و ۱۰ تا ۱۸۰۰ ثانیه**؛ هم‌زمان حداکثر **دو مأموریت در سامانه و یک مأموریت برای هر مالک**.
-- توقف موقت زمان را تمدید نمی‌کند و اقدام ناموفق/رزروشده برگشت داده نمی‌شود. لغو نمی‌تواند درخواست قبلاً ارسال‌شده را پس بگیرد؛ اجرای شبکه تضمین exactly-once ندارد.
-- checksum، نمای **ذخیره‌شده و پالایش‌شده** را کنترل می‌کند، نه اصالت بستهٔ خام شبکه. پالایش تضمین حذف همهٔ اسرار یا اطلاعات شخصی نیست؛ `not_observed` نیز به معنای رفع قطعی مشکل نیست.
-- runner یک VM یا sandbox کامل سیستم‌عامل نیست و firewall نصب نمی‌کند. پیش از اجرای کد نامطمئن، جداسازی مناسب و سیاست خروجی مستقلِ default-deny برای IPv4 و IPv6 لازم است.
-- بررسی محلی ثبت‌شده در **۲۰۲۶-۱۱-۱۸**: **۱۰۸ تست Python و ۹ تست JavaScript موفق**، به‌علاوهٔ Go race/vet، ShellCheck و جریان واقعی مرورگر Chromium. یک هشدار منسوخ‌شدن backend در TestClient ثبت شده است. وضعیت جاری CI را برای همان commit در تب Actions ببینید؛ وجود workflow به معنای عبور آن نیست.
-
-### نسبت با ARTEX و مجوز
-
-این نسخه، **پیاده‌سازی مستقل قابلیت‌های منتخبِ الهام‌گرفته از ARTEX است؛ نه ادغام کامل پروژه**. هیچ سورس، دارایی یا dependency از ARTEX وارد نشده است. RedGate مجوز **MIT** موجود را برای کد خود حفظ می‌کند؛ ARTEX مرجع تحت **AGPL-3.0** است. ادغام کامل سورس هنوز انجام نشده و به تصمیم صریح دربارهٔ سازگاری مجوز و دامنهٔ امنیتی نیاز دارد. مجوز وابستگی‌ها و ابزارهای ثالث مستقل باقی می‌ماند.
-
-**مستندات:** [یادداشت نسخه به فارسی](redgate/docs/RELEASE_2.1.0_FA.md) · [محدوده و منشأ](redgate/docs/ARTEX_SCOPE.md) · [گزارش بررسی](redgate/docs/VERIFICATION_2.1.0.md) · [معماری](redgate/docs/ARCHITECTURE.md) · [راهنمای فنی](redgate/README.md) · [MIT](redgate/LICENSE)
+RedGate با مجوز **MIT**، همراه با اخطار استفادهٔ مجاز درج‌شده در [LICENSE](redgate/LICENSE)، منتشر می‌شود. وابستگی‌ها، ابزارها و مدل‌های مورد استفاده، مجوزهای خود را دارند. اعتبارنامه‌ها، داده‌های ارزیابی و خروجی‌های اجرایی را وارد Git نکنید.
 
 </div>
 
@@ -123,57 +179,108 @@ npm ci --ignore-scripts
 
 ## English
 
-RedGate is a **policy-controlled platform for authorized, bounded security assessment with human review and an auditable execution trail**. Version **2.1.0** adds missions, asset/exploration graphs, HTTP evidence and conservative finding retests without bypassing existing engagement scope, Rules of Engagement (RoE), quotas or two-person approvals.
+### What is RedGate?
 
-> **Authorized use only:** obtain written asset-owner authorization and an active RoE window before testing. Viewing the dashboard or saving a plan never starts a scan. Models and generated scripts are untrusted. Read [Security](redgate/SECURITY.md) and [Limitations](redgate/LIMITATIONS.md).
+**RedGate** is an integrated workspace for planning, bounded execution and documentation of authorized security assessments. Operators can define an engagement's scope, create missions, perform read-only checks, collect HTTP evidence and retain results for human review.
 
-### What's new in 2.1
+A language model does not replace asset-owner authorization or an analyst's judgment. Requests pass through the governance gateway, where operator access, target scope, the **Rules of Engagement (RoE)** window, quotas and tool policies are checked. **Viewing a dashboard or saving a plan does not itself start a scan.**
 
-- **Durable missions:** plan, explicitly start/pause/resume/cancel, enforce finite action/deadline budgets, preserve checkpoints and export Markdown/JSON. Restart never automatically resumes target contact.
-- **Two graphs:** engagement asset inventory and a goal → intent → check → finding/evidence/retest trail. Discovery is not tested coverage or proof of security.
-- **Go HTTP evidence:** bounded anonymous HEAD/GET, a pinned network dial retaining Host/TLS SNI, certificate verification and no redirects. HEAD/no body is the default; optional text previews are capped at 8 KiB and heuristically redacted.
-- **Conservative retests:** repeat supported missing-security-header checks against their original endpoint. Append observations; never overwrite the analyst verdict or original evidence.
-- **JavaScript console:** keyboard-operable SVG graphs, safe text rendering, mobile layout and stale-response guards across identity/engagement changes. No runtime CDN or separate frontend server.
-- **Operations and packaging:** Bash helpers, locked dependencies, WAL-consistent SQLite backups, key rotation, multi-stage Docker targets and a CI workflow. Existing Skills, engagement-scoped memory, local-model support, four-language validation and hash-chained audit records remain.
+> **Lawful, authorized use only:** obtain written permission and a valid scope before contacting any target. Sample configuration is not authorization to test real assets. Read the [security policy](redgate/SECURITY.md) and [operational limitations](redgate/LIMITATIONS.md) before deployment.
 
-### Technology
+### Capabilities
 
-- **Python / FastAPI:** governance gateway, API, authentication, missions and model-output checks.
-- **Go:** native HTTP evidence collector and bounded process runner.
-- **JavaScript / SVG:** web console, graphs and validation/test tooling.
-- **Bash:** lifecycle, credentials, backups and unified verification.
-- **Docker Compose:** service packaging and separate control, target-egress and inference networks. The application database remains **SQLite**.
+- **Mission management:** plan and explicitly start, pause, resume or cancel work, with finite action/deadline budgets and saved progress. Target contact never automatically resumes after a restart.
+- **Asset and exploration graphs:** view engagement inventory and relationships between goals, actions, checks, findings, evidence and retests through keyboard-operable SVG graphs.
+- **HTTP evidence:** a native Go collector makes anonymous HEAD/GET requests, pins the actual connection to an approved IP, preserves Host/TLS SNI and verifies certificates. It forwards no internal authorization headers or cookies and follows no redirects.
+- **Finding retests:** repeat supported missing-security-header checks at the original endpoint. Append observations without overwriting previous evidence or the analyst's verdict.
+- **Skills and memory:** define check pipelines in YAML and keep notes scoped to their engagement.
+- **Configurable language models:** support for Ollama and LM Studio, model selection and runtime settings. Default `mock` mode requires no model download or AI-service call.
+- **Script execution controls:** Python, Bash, Go and JavaScript validation, SHA-256 checks and bounded process execution, alongside tool policies, quotas, roles and a two-person approval path where required.
+- **Reporting and operations:** Markdown/JSON exports, hash-chained audit records, WAL-consistent SQLite backups, key rotation and Bash service-management helpers.
 
-### Quickstart with Docker
+### Architecture and technology
 
-Requires Linux, Docker Engine, Compose v2.20+ and BuildKit. After obtaining this version's source, run from the repository root:
+| Component | Responsibility |
+|---|---|
+| **Web console — JavaScript and SVG** | Operator workspace, missions, graphs, evidence and reports; no runtime CDN or separate frontend server |
+| **Gateway — Python / FastAPI** | API, authentication, scope/RoE, policies, mission coordination and model-output validation |
+| **MCP — Python** | Authenticated internal tool service with constrained inputs |
+| **Runner — Go** | Native HTTP evidence capture and bounded execution of approved scripts |
+| **SQLite** | Engagement data, memory, mission progress, evidence and ledgers, with WAL and additive migrations |
+| **Bash and Docker Compose** | Lifecycle, credentials, backups, packaging and separate control, target-egress and inference networks |
+
+The current deployment model uses **one Gateway process per SQLite database**, not a distributed scheduler. The optional PostgreSQL Compose profile provisions a database service only; it does not change the application's backend.
+
+### Install and start with Docker
+
+Requirements: **Linux, Git, Docker Engine, Docker Compose v2.20+ and BuildKit**. Credential bootstrap also needs OpenSSL or Python 3.
 
 ```bash
-cd redgate
+git clone https://github.com/alireza-bokharaei/RedGate.git
+cd RedGate/redgate
 ./scripts/bootstrap_env.sh
 ./scripts/redgate.sh doctor
 ./scripts/redgate.sh up --full
 ```
 
-Bootstrap prints private operator tokens once; save them securely. Open **http://127.0.0.1:8000**, press **Token**, and sign in. API documentation is at `/docs`. Compose disables demo login and publishes only the gateway on loopback. Remote access requires TLS and network access control.
+For an existing checkout, enter `redgate/` from the repository root. `bootstrap_env.sh` is for initial setup and refuses to overwrite an existing `.env` without `--force`. **Do not use `--force` for a routine upgrade: it rotates all operator and service tokens.**
+
+1. Save the private tokens when first printed; only operator-token hashes remain in `.env`.
+2. Open **http://127.0.0.1:8000** and sign in using **Token**.
+3. Before live work, replace the sample scope/RoE in `config/allowlist.yaml` and review access in `config/operators.yaml` against your authorization.
+4. Interactive API documentation is at `/docs`; `/healthz` and `/readyz` expose service checks.
+
+Compose publishes only the Gateway port on host loopback and disables demo login. MCP and Runner have no published ports. Remote access requires TLS and network access control.
+
+### Runtime modes and daily commands
+
+| Mode | Purpose and limits |
+|---|---|
+| **`full`** | Default; includes validation/execution toolchains for all four languages |
+| **`lite`** | Python/Bash script toolchains and the native Go collector; no Go/JavaScript script validation or execution |
+| **`evidence`** | Separate Runner build target that rejects script execution, not a complete Compose mode |
 
 ```bash
 ./scripts/redgate.sh up --lite
 ./scripts/redgate.sh status
+./scripts/redgate.sh logs gateway
 ./scripts/redgate.sh backup
 ./scripts/redgate.sh down
 ```
 
-- **full:** image definitions retain all four script validation/execution toolchains.
-- **lite:** omits Go/Node script toolchains, not policy checks or native evidence; Skills depending on Go/JS cannot complete those adapter steps.
-- **evidence:** a separate runner build target that rejects scripts, not a complete Compose flavor.
-- `down` retains named-volume data. Never use `down --volumes` for an upgrade.
+`logs` follows output until Ctrl+C. Backup writes a consistent SQLite snapshot as gzip with mode `0600` to `backups/`. `down` retains named-volume data. **Never use `down --volumes` for an upgrade.** Back up first and rehearse restoration in staging.
 
-**Docker status:** no local daemon was available, but [GitHub verification of commit `763da11`](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) passed: `full`/`lite` image builds and startup, readiness/installed-capability checks, and the `evidence` target build. This controlled check does not replace intended-host validation, hostile-code containment or resource measurements. **No measured image-size reduction or speed improvement is claimed.** See [deployment and upgrades](redgate/docs/DEPLOYMENT.md).
+### Assessment workflow
 
-### Local development and checks
+1. **Define scope:** review authorization, targets, the RoE window, roles, quotas and tool policies.
+2. **Plan:** select an authorized engagement and save a mission with its goal, Skill and finite budgets.
+3. **Start explicitly:** launch the mission and follow its status, progress and exploration trail in the console.
+4. **Review evidence:** inspect findings, headers, permitted previews and graph relationships. Inventory is not tested coverage or proof of security.
+5. **Retest and report:** explicitly repeat supported checks and export Markdown or JSON for human analysis.
 
-The complete checks require Python 3.11+, Go 1.22+, Node 22.13+ and ShellCheck. From the repository root:
+A mission accepts **1–8 hosts**, **1–64 actions** (default 24) and **10–1800 seconds** (default 300). At most **two missions globally and one per owner** execute concurrently. Pausing does not extend the deadline; failed or reserved actions are not refunded.
+
+### Local language models
+
+After bootstrap, run from `redgate/` to write initial container-reachable Ollama settings:
+
+```bash
+./scripts/setup_local_llm.sh --compose ollama
+```
+
+This command **does not download model weights or start an inference service**. Downloads require explicit `--pull` and may consume many GB. Inspect the helper's options with:
+
+```bash
+./scripts/setup_local_llm.sh --help
+```
+
+Use `--local` for a host-run Gateway. LM Studio with Compose requires a container-reachable `--base-url` and operator-configured host routing: container `127.0.0.1` is not your host.
+
+Saved SQLite runtime settings override initial `.env` values. For an existing database, update the settings through **Local AI → Runtime**. Truly local execution requires a local endpoint, prepared weights and adequate hardware; review model size and licensing separately.
+
+### Development and tests
+
+Complete verification requires **Python 3.11+, Go 1.22+, Node.js 22.13+ and ShellCheck**. From the repository root:
 
 ```bash
 python3 -m venv .venv
@@ -185,28 +292,25 @@ npm ci --ignore-scripts
 ./scripts/start_local.sh
 ```
 
-The local launcher defaults to loopback, mock AI and temporary private credentials; it does not automatically source `.env`. Direct host execution is not hostile-code isolation. `REDGATE_DEMO_MODE=true` is for an explicit private lab only: anyone reaching that gateway can obtain a lab identity.
+`verify.sh` runs Bash/ShellCheck, JavaScript syntax/ESLint and interface tests, Go race/vet/build, Ruff and the Python suite. Compose configuration is checked only when the CLI and `.env` are available; this script alone does not establish image build/runtime behavior.
 
-### Local inference
+The local launcher defaults to loopback, `mock` AI and temporary private credentials; it prints the token-file path and does not automatically source `.env`. It is not host isolation. `REDGATE_DEMO_MODE=true` is for private labs only: anyone reaching such a Gateway can obtain a lab identity.
 
-Default **mock** mode needs no model or external AI call. Configure initial container-reachable Ollama settings without downloading weights:
+### Security and operational boundaries
 
-```bash
-./scripts/setup_local_llm.sh --compose ollama
-```
+- The Runner is not a complete OS sandbox or VM. Untrusted code requires appropriate independent containment and externally enforced **default-deny IPv4/IPv6 egress**. Compose networks alone are not destination firewalls; RedGate does not install its rendered firewall rules.
+- Evidence defaults to **HEAD without a response body**. Text previews require explicit GET and are capped at **8 KiB**. Heuristic redaction cannot guarantee removal of all secrets or personal data.
+- Evidence SHA-256 checks cover the **stored, redacted representation**, not raw-wire authenticity. Protect the host, database and backups independently.
+- `not_observed` does not prove remediation. Identification, business impact and final conclusions require human review.
+- Cancellation cannot retract sent traffic. An interrupted action without a checkpoint may be repeated; network execution is not exactly-once.
+- Compose resource settings are not performance measurements. Validate resources, containment, restoration and inference on your intended host; no unmeasured image-size or speed advantage is asserted.
 
-Only explicit `--pull` downloads models, potentially many GB. Saved SQLite runtime settings take precedence over initial `.env` defaults; update **Local AI → Runtime** as an assigned admin for an existing database. A host loopback URL is not the container's Ollama service. The technical guide explains host and container networking separately.
+### Documentation and license
 
-### Safety, capacity and verification
+- [Technical guide and API](redgate/README.md)
+- [Architecture and data integrity](redgate/docs/ARCHITECTURE.md)
+- [Deployment, backups, upgrades and restoration](redgate/docs/DEPLOYMENT.md)
+- [Verification record and reproducible browser test](redgate/docs/VERIFICATION_2.1.0.md)
+- [Security](redgate/SECURITY.md) · [Limitations](redgate/LIMITATIONS.md) · [CI workflow](.github/workflows/verify.yml)
 
-- Per mission: **1–8 hosts, 1–64 actions and 10–1800 seconds**. At most **two active missions globally and one per owner**.
-- Pausing does not extend the deadline; failed/reserved actions are not refunded. Cancellation cannot retract sent traffic. Exactly-once network execution is not guaranteed.
-- Checksums cover the **stored, redacted representation**, not raw-wire authenticity. Redaction cannot guarantee removal of all secrets/PII, and `not_observed` does not prove a vulnerability is fixed.
-- The runner is not a VM/full OS sandbox and does not install a firewall. Untrusted adapters require independently enforced hostile-code containment and default-deny IPv4/IPv6 egress.
-- Recorded local verification on **2026-11-18**: **108 Python tests and 9 JavaScript tests passed**, plus Go race/vet, ShellCheck and a real Chromium workflow. One upstream TestClient-backend deprecation warning was recorded. Check Actions for the exact commit's current CI result; a workflow file is not itself a passing CI run.
-
-### ARTEX scope and license
-
-This is an **independent implementation of selected ARTEX-inspired workflows, not a whole-project merge**. No ARTEX source, assets or dependencies have been imported. RedGate retains its existing **MIT** license for its own code; the reviewed ARTEX reference uses **AGPL-3.0**. Whole-source integration remains unimplemented and requires an explicit license-compatibility and security-scope decision. Third-party tools/dependencies retain their respective licenses.
-
-**Documentation:** [Technical guide and API](redgate/README.md) · [Architecture](redgate/docs/ARCHITECTURE.md) · [Deployment, backup and upgrade](redgate/docs/DEPLOYMENT.md) · [ARTEX scope/provenance](redgate/docs/ARTEX_SCOPE.md) · [Verification record](redgate/docs/VERIFICATION_2.1.0.md) · [Persian release notes](redgate/docs/RELEASE_2.1.0_FA.md) · [MIT license](redgate/LICENSE)
+RedGate is distributed under the **MIT License**, with an authorized-use notice in [LICENSE](redgate/LICENSE). Dependencies, tools and models retain their respective licenses. Never commit credentials, engagement data or runtime artifacts to Git.
