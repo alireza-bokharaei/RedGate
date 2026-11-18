@@ -65,7 +65,7 @@ Bootstrap توکن‌های خصوصی اپراتورها را فقط یک‌ب�
 - **evidence:** هدف ساخت جداگانهٔ runner است که اجرای اسکریپت را رد می‌کند؛ یک flavor کامل Compose نیست.
 - فرمان `down` داده‌های named volume را نگه می‌دارد؛ برای ارتقا از `down --volumes` استفاده نکنید.
 
-**وضعیت Docker:** در محیط پیاده‌سازی، Docker daemon در دسترس نبود. ساخت/اجرای واقعی imageها و مصرف منابع باید در CI یا staging بررسی شود. **هیچ کاهش اندازه یا افزایش سرعتِ اندازه‌گیری‌شده‌ای ادعا نمی‌شود.** [راهنمای استقرار و ارتقا](redgate/docs/DEPLOYMENT.md).
+**وضعیت Docker:** daemon محلی در دسترس نبود؛ اما [بررسی GitHub برای commit `763da11`](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) موفق شد: ساخت و راه‌اندازی `full` و `lite`، بررسی readiness و قابلیت‌های نصب‌شده، و ساخت هدف `evidence`. این بررسی کنترل‌شده جای تأیید محیط تولید، جداسازی کد متخاصم یا سنجش منابع را نمی‌گیرد. **هیچ کاهش اندازه یا افزایش سرعتِ اندازه‌گیری‌شده‌ای ادعا نمی‌شود.** [راهنمای استقرار و ارتقا](redgate/docs/DEPLOYMENT.md).
 
 ### توسعه و بررسی محلی
 
@@ -169,7 +169,7 @@ Bootstrap prints private operator tokens once; save them securely. Open **http:/
 - **evidence:** a separate runner build target that rejects scripts, not a complete Compose flavor.
 - `down` retains named-volume data. Never use `down --volumes` for an upgrade.
 
-**Docker status:** no Docker daemon was available in the implementation environment. Actual image builds, container execution and resource behavior require CI/staging verification. **No measured image-size reduction or speed improvement is claimed.** See [deployment and upgrades](redgate/docs/DEPLOYMENT.md).
+**Docker status:** no local daemon was available, but [GitHub verification of commit `763da11`](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) passed: `full`/`lite` image builds and startup, readiness/installed-capability checks, and the `evidence` target build. This controlled check does not replace intended-host validation, hostile-code containment or resource measurements. **No measured image-size reduction or speed improvement is claimed.** See [deployment and upgrades](redgate/docs/DEPLOYMENT.md).
 
 ### Local development and checks
 

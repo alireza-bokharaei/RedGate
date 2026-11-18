@@ -54,7 +54,7 @@ Open **http://127.0.0.1:8000**, press **Token**, and enter your private operator
 ./scripts/redgate.sh down       # Stops stack, KEEPS volumes
 ```
 
-`full` is the default and keeps all four language toolchains. `lite` still supports missions, MCP checks, graphs, evidence and retests; skills needing Go/JS adapters cannot complete those steps. `/api/v1/health` reports installed validator tools and runner languages. Container builds/execution remain an explicit deployment validation step; see [verification status](docs/VERIFICATION_2.1.0.md).
+`full` is the default and keeps all four language toolchains. `lite` still supports missions, MCP checks, graphs, evidence and retests; skills needing Go/JS adapters cannot complete those steps. `/api/v1/health` reports installed validator tools and runner languages. [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) passed build/startup/readiness/capability checks for both flavors and built the evidence-only target. Intended-host adapter, containment and resource checks remain deployment responsibilities; see [verification status](docs/VERIFICATION_2.1.0.md).
 
 ### Local inference (optional)
 

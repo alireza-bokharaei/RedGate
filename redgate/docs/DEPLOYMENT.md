@@ -6,7 +6,7 @@ Use Linux with Docker Engine, Compose v2.20+ and BuildKit. Build/pull access to 
 
 The default stack runs **one** gateway, MCP and runner. Only gateway port 8000 is published, on `127.0.0.1`. `control_net` is internal; `target_egress_net` and `llm_egress_net` provide routing, **not destination filtering**. Before live work, enforce and test default-deny IPv4/IPv6 egress outside the containers for both MCP and runner, permitting only signed targets and explicitly required control/inference connections. Use a stronger per-job isolation boundary for hostile scripts. Do not use host networking, privileged containers, a Docker socket mount or multiple gateway workers.
 
-Docker is not available in the implementation sandbox. [Local verification](VERIFICATION_2.1.0.md) does not establish that images build/run or meet resource limits on your host. Perform a staged build, health/readiness, adapter and scope-denial smoke test before production.
+Docker is not available in the implementation sandbox. Subsequent [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) passed full/lite builds, startup/readiness and capability checks, and built the evidence-only target. This controlled run does not establish intended-host resource enforcement or hostile-code containment. Perform staged adapter, native-collector, scope/egress-denial and restore checks on your deployment before production; see the [verification record](VERIFICATION_2.1.0.md).
 
 ## 2. First deployment
 

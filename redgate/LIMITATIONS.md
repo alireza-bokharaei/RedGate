@@ -42,7 +42,7 @@ This is an independent addition of mission/graph/evidence/retest workflows to Re
 - Compose provides non-root/read-only service containers, not per-script isolation. Jobs within a runner share a UID and persistent tool caches; a hostile adapter could interfere with that state. Avoid multi-tenant hostile workloads. Native evidence invokes no user-supplied code.
 - `lite` omits Go/Node adapters and their validators. `full` includes all four languages but first-use Go compilation under finite memory/time may fail closed until caches are warm. The evidence-only runner target refuses scripts regardless of installed base utilities.
 - PostgreSQL's optional Compose profile is provisioning only: the application still uses SQLite. There is no supported PostgreSQL driver, automatic database conversion or multi-node deployment.
-- Docker builds, container startup, actual resource limits, image-size comparisons, performance benchmarks and real external inference were not run in the implementation sandbox. Local test timings are not production capacity or speedup measurements.
+- No Docker daemon was available in the implementation sandbox. [GitHub CI](https://github.com/alireza-bokharaei/RedGate/actions/runs/44288999257) subsequently passed full/lite build/startup/readiness/capability checks and built the evidence-only target. Intended-host resource enforcement, in-container script/collector behavior, image-size comparisons, performance benchmarks and real external inference still require separate validation. CI/local test timings are not production capacity or speedup measurements.
 
 ## Local models and human judgment
 
