@@ -6,6 +6,7 @@
     token: sessionStorage.getItem("redgate_token") || "",
     engagementId: "ENG-LOCAL-LAB",
     me: null,
+    engagements: [],
     toolPolicies: [],
     scriptPolicies: [],
     allowlist: [],
@@ -169,7 +170,9 @@
     if (epoch !== state.refreshEpoch || token !== state.token) return;
     if (!meRes.ok) {
       state.me = null;
+      state.engagements = [];
       window.RedstrikeWorkspace.reset();
+      renderProfileProjects();
       flashToast("Authentication failed. Provide a valid Bearer token.");
       return;
     }
@@ -207,6 +210,7 @@
       state.allowlist = allowRes.data.allowlist || [];
       renderAllowlist();
     }
+    renderProfileProjects();
     if (polRes.ok) {
       state.toolPolicies = polRes.data.tool_policies || [];
       state.scriptPolicies = polRes.data.script_policies || [];
@@ -232,6 +236,7 @@
   }
 
   function renderEngagements(engs) {
+    state.engagements = engs;
     const sel = $("engagementSelect");
     const prev = state.engagementId;
     sel.innerHTML = engs.map((e) =>
@@ -245,6 +250,61 @@
     }
     const cur = engs.find((e) => e.id === state.engagementId);
     if (cur) $("kpiEngagementName").textContent = `${cur.id}: ${cur.name}`;
+  }
+
+  function renderProfileProjects() {
+    const body = $("profileProjectsBody");
+    const roleBadge = $("profileRoleBadge");
+    if (!body || !roleBadge) return;
+    const me = state.me;
+    roleBadge.textContent = me ? `${me.display_name} · ${me.role}` : "-";
+    if (!me) {
+      body.innerHTML = `<tr><td colspan="6" style="color:var(--muted)">Authenticate to list the projects assigned to this profile.</td></tr>`;
+      return;
+    }
+    if (!state.engagements.length) {
+      body.innerHTML = `<tr><td colspan="6" style="color:var(--muted)">No projects are assigned to this profile yet.</td></tr>`;
+      return;
+    }
+    const allowed = new Set(me.allowed_engagements || []);
+    const wildcard = allowed.has("*");
+    const now = Date.now();
+    const day = (iso) => escapeHtml((iso || "").slice(0, 10) || "—");
+    body.innerHTML = state.engagements.map((e) => {
+      const from = Date.parse(e.valid_from || "");
+      const until = Date.parse(e.valid_until || "");
+      let statusText = "active", tag = "low";
+      if (!e.active) { statusText = "disabled"; tag = "rejected"; }
+      else if (Number.isFinite(until) && now > until) { statusText = "expired"; tag = "rejected"; }
+      else if (Number.isFinite(from) && now < from) { statusText = "upcoming"; tag = "medium"; }
+      const scopeCount = state.allowlist.filter((a) => a.engagement_id === e.id && a.active).length;
+      const access = wildcard ? "Full wildcard" : (allowed.has(e.id) ? "Assigned" : "—");
+      const current = e.id === state.engagementId;
+      return `
+        <tr${current ? ' class="is-current-project"' : ""}>
+          <td>
+            <code>${escapeHtml(e.id)}</code> <strong>${escapeHtml(e.name)}</strong>
+            <div style="color:var(--muted);font-size:11.5px;margin-top:2px">${escapeHtml(e.description || "")}</div>
+          </td>
+          <td>${escapeHtml(access)}</td>
+          <td><code>${day(e.valid_from)} → ${day(e.valid_until)}</code></td>
+          <td><span class="tag tag-${tag}">${statusText}</span>${current ? ' <span class="tag tag-low">current</span>' : ""}</td>
+          <td>${scopeCount}</td>
+          <td>${current
+            ? '<span style="color:var(--muted);font-size:11.5px">Active project</span>'
+            : `<button type="button" class="btn btn-xs btn-secondary" data-open-project="${escapeHtml(e.id)}">Open</button>`}
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    body.querySelectorAll("button[data-open-project]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const sel = $("engagementSelect");
+        sel.value = btn.dataset.openProject;
+        sel.dispatchEvent(new Event("change"));
+      });
+    });
   }
 
   function renderSkills() {

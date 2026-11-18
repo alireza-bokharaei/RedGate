@@ -224,7 +224,9 @@ input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
 /* Main Content */
 .main-content {
   padding: 22px 26px;
-  overflow-x: auto;
+  /* clip (not auto/hidden) avoids creating a scroll container, so sticky
+     elements such as .ws-mission-rail keep tracking the page viewport. */
+  overflow-x: clip;
 }
 .tab-panel { display: none; }
 .tab-panel.active { display: block; }
@@ -278,6 +280,8 @@ input:focus, select:focus, textarea:focus { border-color: var(--cyan); }
   gap: 16px;
 }
 .mt-16 { margin-top: 16px; }
+.mb-16 { margin-bottom: 16px; }
+.is-current-project td { background: rgba(56, 189, 248, 0.06); }
 
 .card {
   background: var(--surface);

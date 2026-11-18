@@ -59,7 +59,12 @@
     const data = project(graph);
     svg.replaceChildren();
     svg.setAttribute("viewBox", `0 0 ${data.width} ${data.height}`);
-    svg.style.minHeight = `${Math.min(560, data.height)}px`;
+    // Explicit intrinsic dimensions: CSS (width:100% + height:auto) then scales the
+    // graph by aspect ratio only. The old inline min-height (up to 560px) exceeded
+    // the 430px scroll container and letterboxed small graphs with empty bands.
+    svg.setAttribute("width", String(data.width));
+    svg.setAttribute("height", String(data.height));
+    svg.style.removeProperty("min-height");
     const positions = new Map(data.nodes.map((node) => [node.id, node]));
     function el(name, attributes, parent) {
       const result = svg.ownerDocument.createElementNS(NS, name);

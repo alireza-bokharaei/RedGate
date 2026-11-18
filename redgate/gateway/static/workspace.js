@@ -5,12 +5,21 @@
   const ACTIVE = new Set(["running", "pausing", "cancelling"]);
   let host = null, selectedId = null, snapshot = null, mode = "assets";
   let timer = null, generation = 0, sequence = 0, evidenceId = null;
+  let graphSignature = "";
 
   function element(name, text, className) {
     const node = document.createElement(name);
     if (text !== undefined) node.textContent = String(text);
     if (className) node.className = className;
     return node;
+  }
+  // Rebuild children without throwing away the user's scroll position. The 10s
+  // mission poll re-renders these lists; replacing children resets scrollTop to 0.
+  function keepScroll(el, mutate) {
+    const top = el.scrollTop, left = el.scrollLeft;
+    mutate();
+    el.scrollTop = top;
+    el.scrollLeft = left;
   }
   function badge(status) {
     const safe = /^[a-z_]+$/.test(status || "") ? status : "draft";
@@ -54,7 +63,7 @@
   function reset() {
     generation += 1;
     cancelTimer();
-    selectedId = null; snapshot = null; evidenceId = null;
+    selectedId = null; snapshot = null; evidenceId = null; graphSignature = "";
     if (!$("wsMissionList")) return;
     empty($("wsMissionList"), "Authenticate and select an engagement to load missions.");
     empty($("wsEvidenceList"), "No captured evidence selected.");
@@ -96,15 +105,17 @@
     if (!missions.length) {
       empty($("wsMissionList"), "No missions yet. Save a scope-checked plan, then explicitly start it."); return;
     }
-    $("wsMissionList").replaceChildren(...missions.map((mission) => {
-      const button = element("button", undefined, "ws-mission");
-      button.type = "button";
-      button.setAttribute("aria-current", String(mission.mission_id === selectedId));
-      button.append(element("strong", mission.name), badge(mission.status),
-        element("small", `${mission.completed_intents}/${mission.total_intents} intents · ${mission.used_actions}/${mission.max_actions} actions`));
-      button.addEventListener("click", () => { selectedId = mission.mission_id; message(""); refresh(true); });
-      return button;
-    }));
+    keepScroll($("wsMissionList"), () => {
+      $("wsMissionList").replaceChildren(...missions.map((mission) => {
+        const button = element("button", undefined, "ws-mission");
+        button.type = "button";
+        button.setAttribute("aria-current", String(mission.mission_id === selectedId));
+        button.append(element("strong", mission.name), badge(mission.status),
+          element("small", `${mission.completed_intents}/${mission.total_intents} intents · ${mission.used_actions}/${mission.max_actions} actions`));
+        button.addEventListener("click", () => { selectedId = mission.mission_id; message(""); refresh(true); });
+        return button;
+      }));
+    });
   }
   function renderSelected(mission) {
     const ctx = host?.getContext() || {};
@@ -134,7 +145,16 @@
   function renderGraph() {
     if (!snapshot) return;
     const graph = mode === "assets" ? snapshot.asset_graph : snapshot.exploration_graph;
-    const data = window.RedstrikeGraph.render($("wsGraph"), graph, (node) => {
+    const svg = $("wsGraph");
+    const signature = `${mode}:${JSON.stringify(graph || null)}`;
+    // The mission poll re-renders every 10s; rebuilding identical SVG dropped the
+    // operator's scroll position and keyboard focus. Skip no-op re-renders, and
+    // restore the scroll offsets when the graph genuinely changes.
+    if (signature === graphSignature && svg.childNodes.length) return;
+    graphSignature = signature;
+    const scrollBox = svg.closest(".ws-graph-scroll");
+    const top = scrollBox ? scrollBox.scrollTop : 0, left = scrollBox ? scrollBox.scrollLeft : 0;
+    const data = window.RedstrikeGraph.render(svg, graph, (node) => {
       if (node.kind === "evidence") {
         const epoch = generation;
         host.request(`/api/v1/evidence/${encodeURIComponent(node.id)}`).then((res) => {
@@ -143,8 +163,9 @@
         });
       } else inspect(node);
     });
+    if (scrollBox) { scrollBox.scrollTop = top; scrollBox.scrollLeft = left; }
     // SVGElement has no HTMLElement.hidden setter in real browsers.
-    $("wsGraph").toggleAttribute("hidden", !data.nodes.length);
+    svg.toggleAttribute("hidden", !data.nodes.length);
     $("wsGraphEmpty").hidden = Boolean(data.nodes.length);
     $("wsGraphNote").textContent = data.truncated ? "Graph view is capped at 120 nodes; use the paginated APIs for the complete inventory." : "Select a node to inspect its reference. Coverage is an observation ledger, not proof of security.";
     for (const [id, selected] of [["wsAssetMode", mode === "assets"], ["wsExplorationMode", mode === "exploration"]]) {
@@ -153,39 +174,43 @@
   }
   function renderEvidence(evidence) {
     if (!evidence.length) { empty($("wsEvidenceList"), "No evidence yet. Enable anonymous HEAD collection when planning a mission."); return; }
-    $("wsEvidenceList").replaceChildren(...evidence.map((entry) => {
-      const button = element("button", undefined, "ws-evidence-row"), body = element("div", undefined, "ws-row-body");
-      button.type = "button";
-      const payload = entry.payload;
-      body.append(element("div", `${payload.method} ${payload.url}`, "ws-row-title"),
-        element("div", `${entry.sha256.slice(0, 16)}… · ${entry.integrity_valid ? "intact" : "INTEGRITY FAILED"} · pin ${payload.connected_ip}`, "ws-row-meta"));
-      button.append(element("span", payload.status_code, "ws-http-code"), body);
-      button.addEventListener("click", () => inspect(entry, entry.evidence_id));
-      return button;
-    }));
+    keepScroll($("wsEvidenceList"), () => {
+      $("wsEvidenceList").replaceChildren(...evidence.map((entry) => {
+        const button = element("button", undefined, "ws-evidence-row"), body = element("div", undefined, "ws-row-body");
+        button.type = "button";
+        const payload = entry.payload;
+        body.append(element("div", `${payload.method} ${payload.url}`, "ws-row-title"),
+          element("div", `${entry.sha256.slice(0, 16)}… · ${entry.integrity_valid ? "intact" : "INTEGRITY FAILED"} · pin ${payload.connected_ip}`, "ws-row-meta"));
+        button.append(element("span", payload.status_code, "ws-http-code"), body);
+        button.addEventListener("click", () => inspect(entry, entry.evidence_id));
+        return button;
+      }));
+    });
   }
   function renderFindings() {
     const findings = (snapshot?.exploration_graph?.nodes || []).filter((node) => node.kind === "finding");
     if (!findings.length) { empty($("wsFindingList"), "No findings are bound to this mission yet. Absence of findings is not assurance of security."); return; }
-    $("wsFindingList").replaceChildren(...findings.slice(0, 60).map((finding) => {
-      const row = element("div", undefined, "ws-finding-row"), body = element("div", undefined, "ws-row-body");
-      body.append(element("div", finding.label, "ws-row-title"), element("div", `${finding.severity} · ${finding.status.replaceAll("_", " ")}`, "ws-row-meta"));
-      const button = element("button", finding.retest_supported ? "Retest header" : "Manual review", "btn btn-secondary btn-xs");
-      button.disabled = !finding.retest_supported;
-      button.addEventListener("click", async () => {
-        button.disabled = true;
-        const epoch = generation;
-        try {
-          const result = await host.request(`/api/v1/recon/findings/${finding.finding_id}/retest`, { method: "POST", body: JSON.stringify({ note: "" }) });
-          if (epoch !== generation) return;
-          if (!result.ok) { failed(result); return; }
-          inspect(result.data);
-          message(`Retest: ${result.data.retest.outcome.replaceAll("_", " ")}. Original verdict unchanged; human review is still required.`);
-          await refresh(true);
-        } finally { if (button.isConnected) button.disabled = false; }
-      });
-      row.append(body, button); return row;
-    }));
+    keepScroll($("wsFindingList"), () => {
+      $("wsFindingList").replaceChildren(...findings.slice(0, 60).map((finding) => {
+        const row = element("div", undefined, "ws-finding-row"), body = element("div", undefined, "ws-row-body");
+        body.append(element("div", finding.label, "ws-row-title"), element("div", `${finding.severity} · ${finding.status.replaceAll("_", " ")}`, "ws-row-meta"));
+        const button = element("button", finding.retest_supported ? "Retest header" : "Manual review", "btn btn-secondary btn-xs");
+        button.disabled = !finding.retest_supported;
+        button.addEventListener("click", async () => {
+          button.disabled = true;
+          const epoch = generation;
+          try {
+            const result = await host.request(`/api/v1/recon/findings/${finding.finding_id}/retest`, { method: "POST", body: JSON.stringify({ note: "" }) });
+            if (epoch !== generation) return;
+            if (!result.ok) { failed(result); return; }
+            inspect(result.data);
+            message(`Retest: ${result.data.retest.outcome.replaceAll("_", " ")}. Original verdict unchanged; human review is still required.`);
+            await refresh(true);
+          } finally { if (button.isConnected) button.disabled = false; }
+        });
+        row.append(body, button); return row;
+      }));
+    });
   }
   async function control(action) {
     if (!selectedId) return;
