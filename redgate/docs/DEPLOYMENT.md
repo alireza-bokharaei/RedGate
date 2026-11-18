@@ -1,164 +1,121 @@
-# RedGate Deployment & Operations Guide
+# Deployment, Upgrade and Operations — 2.1.0
 
-## 1. Isolated Production Deployment (Docker Compose)
+## 1. Prerequisites and trust boundary
 
-RedGate separates internal service communication (`control_net`, marked `internal: true` with no external routing) from controlled assessment egress (`target_egress_net`) and LLM gateway traffic (`llm_egress_net`).
+Use Linux with Docker Engine, Compose v2.20+ and BuildKit. Build/pull access to image registries, Debian packages, PyPI and npm is needed initially. No model files are bundled. Approve/pin upstream image digests in your deployment process; the checked-in base tags are not immutable.
 
-### Step 1: Generate Operator & Service Secrets (Zero Hardcoded Credentials)
+The default stack runs **one** gateway, MCP and runner. Only gateway port 8000 is published, on `127.0.0.1`. `control_net` is internal; `target_egress_net` and `llm_egress_net` provide routing, **not destination filtering**. Before live work, enforce and test default-deny IPv4/IPv6 egress outside the containers for both MCP and runner, permitting only signed targets and explicitly required control/inference connections. Use a stronger per-job isolation boundary for hostile scripts. Do not use host networking, privileged containers, a Docker socket mount or multiple gateway workers.
 
-```bash
-cd redgate
-cp .env.example .env
-mkdir -p secrets && chmod 700 secrets
+Docker is not available in the implementation sandbox. [Local verification](VERIFICATION_2.1.0.md) does not establish that images build/run or meet resource limits on your host. Perform a staged build, health/readiness, adapter and scope-denial smoke test before production.
 
-# 1. Generate internal service-to-service token (Gateway <-> MCP <-> Go Sandbox)
-INTERNAL_TOK=$(openssl rand -hex 32)
+## 2. First deployment
 
-# 2. Generate distinct Bearer tokens per operator (distribute securely out-of-band;
-#    store ONLY SHA-256 hashes on the server!)
-TOK_ALICE="rg_op_$(openssl rand -hex 24)"
-TOK_SARA="rg_lead_$(openssl rand -hex 24)"
-TOK_KAVEH="rg_adm_$(openssl rand -hex 24)"
-
-HASH_ALICE=$(printf '%s' "$TOK_ALICE" | sha256sum | awk '{print $1}')
-HASH_SARA=$(printf '%s' "$TOK_SARA"  | sha256sum | awk '{print $1}')
-HASH_KAVEH=$(printf '%s' "$TOK_KAVEH" | sha256sum | awk '{print $1}')
-
-# Populate REDGATE_INTERNAL_TOKEN and REDGATE_TOKEN_HASH_* in .env
-# Initialize LLM secret file (can be a placeholder when using local Ollama or mock mode)
-printf '%s' "initial-placeholder-key" > secrets/llm_api_key
-chmod 600 secrets/llm_api_key
-```
-
-### Step 2: Launch Hardened Stack
+Run from `redgate/`:
 
 ```bash
-docker compose up -d --build
-docker compose ps
-curl -s http://127.0.0.1:8000/api/v1/health | jq .
+./scripts/bootstrap_env.sh
+./scripts/redgate.sh doctor
+./scripts/redgate.sh up --full
+./scripts/redgate.sh status
 ```
 
-### Step 3: Enforce Host-Level Egress Firewall on `target_egress_net`
+Bootstrap prints distinct operator tokens **once**; store/distribute them privately. `.env` contains their SHA-256 hashes and an internal-service token, mode 0600. It is read by Compose, never sourced as shell. `--force` rotates **all** operator/service tokens and rewrites deployment defaults; do not use it as a routine upgrade step.
 
-Never connect `sandbox-runner` to `network_mode: host`. Apply host `nftables`/`iptables` rules to the `target_egress_net` bridge allowing traffic **only** to signed engagement CIDRs and rejecting RFC 1918/metadata destinations not in scope:
+The gateway user is UID/GID 10000; runner 10001; MCP 10002. Bootstrap creates `secrets/` 0750 and `llm_api_key` 0640 with a restricted host group (`REDGATE_SECRETS_GID`, default your current group). Compose adds that supplementary group only to gateway. Ensure the chosen group has no unintended members. Bind-mounted config/skills must be readable by their service users; database volume ownership must allow UID 10000 to write. Don't solve permission problems by making secrets world-readable.
+
+Open `http://127.0.0.1:8000`; use **Token** to authenticate. Compose forces `REDGATE_DEMO_MODE=false`, even if `.env` says otherwise. Deploy TLS and access control through a reverse proxy before explicitly setting `REDGATE_BIND_ADDR=0.0.0.0` for remote access. Browser code uses relative URLs; never direct a remote user's browser to internal localhost services.
+
+### Image flavors
+
+| Target | Gateway | Runner | Use |
+|---|---|---|---|
+| `full` (default) | Python/Bash/Go/JS validators | All four script runtimes + native evidence | Existing polyglot skills |
+| `lite` | Python/Bash validators | Python/Bash + native evidence | Workspace without Go/JS adapters |
+| runner `evidence` build target | Not a complete stack flavor | Native HTTP evidence; `/execute` returns 403 | Custom deployment minimizing script execution |
 
 ```bash
-# Example: restrict sandbox bridge to signed engagement subnet 192.0.2.0/24
-sudo iptables -I DOCKER-USER -i br-target-egress -d 169.254.169.254/32 -j REJECT
-sudo iptables -I DOCKER-USER -i br-target-egress ! -d 192.0.2.0/24 -j REJECT
+./scripts/redgate.sh up --lite
+# Standalone build target, not REDGATE_IMAGE_FLAVOR=evidence:
+docker build --target evidence -f sandbox_runner/Dockerfile -t redgate/runner:2.1.0-evidence .
 ```
 
----
+`lite` does not disable policy checks to make unsupported languages pass. Go dual-verification skills may have failed/unavailable adapter steps. Check `/api/v1/health` validator booleans and `sandbox_runner.languages`; readiness alone does not establish complete skill/tool support. First-use Go compilation has finite time/memory and may fail closed on a cold/restricted host. Plan capacity based on measurements, not an assumed speedup.
 
-## 2. Configuring Engagement Allowlists
+## 3. Scope, policy and mission operation
 
-1. **Declarative (Recommended / GitOps)**: Edit `config/allowlist.yaml` before an engagement:
-   - Assign a unique engagement `id` (e.g., `ENG-2026-014`).
-   - Set exact UTC `valid_from` and `valid_until` matching your signed Rules of Engagement.
-   - Add authorized IPs, CIDRs (`/16` to `/32`), exact domains, or `*.subdomain.tld` entries.
-   - Restart `gateway` to synchronize into SQLite.
-2. **Runtime API (Approver / Admin only — fully audit-logged)**:
-   ```bash
-   # Add target
-   curl -X POST http://127.0.0.1:8000/api/v1/allowlist \
-     -H "Authorization: Bearer $TOK_SARA" \
-     -H "Content-Type: application/json" \
-     -d '{"engagement_id":"ENG-2026-001","target":"192.0.2.50","description":"Signed RoE addendum #2"}'
+1. Replace samples in `config/allowlist.yaml` with authorized engagement IDs, UTC RoE dates and exact IP/CIDR/domain rules. Assign matching engagement IDs to identities in `config/operators.yaml`.
+2. Review `tool_policy.yaml`/`script_policy.yaml`. Mission HTTP ports must be in `http_headers.allowed_params.allowed_ports`; approval-gated tools are not made autonomous.
+3. Keep YAML baselines synchronized with approved runtime changes: startup seeds engagements, tool/script policies and built-in Skills. A restart can overwrite corresponding API edits. Removing a target from YAML is **not a deletion API**; explicitly deactivate obsolete records and verify effective scope.
+4. Create a mission in the console, inspect its finite budget and endpoint, then **Start** explicitly. Pause drains the current intent; cancel gates later actions. A gateway restart pauses interrupted work and requires explicit resume. Pausing does not reset the deadline or return spent reservations.
+5. Read step/intent warnings even if a mission says `completed`. Retests append observations, never auto-close findings. Reports and exports require analyst review and sensitive-data handling.
 
-   # Immediately revoke target mid-engagement
-   curl -X PATCH http://127.0.0.1:8000/api/v1/allowlist/5 \
-     -H "Authorization: Bearer $TOK_SARA" \
-     -H "Content-Type: application/json" \
-     -d '{"active": false}'
-   ```
+The loopback lab applies to **direct host development**. Within Compose, the runner's `127.0.0.1` is the runner, not the gateway/host. For a container smoke target use an explicitly authorized, disposable service and matching scope/port configuration; do not broaden a production scope to work around container networking.
 
----
+## 4. Local inference and secret rotation
 
-## 3. Enabling / Disabling Tools & Two-Person Approval
-
-- Edit `config/tool_policy.yaml` for persistent baseline policy, or toggle dynamically as `admin`:
-  ```bash
-  # Disable nmap immediately
-  curl -X PATCH http://127.0.0.1:8000/api/v1/policies/tools/nmap \
-    -H "Authorization: Bearer $TOK_KAVEH" \
-    -H "Content-Type: application/json" \
-    -d '{"enabled": false}'
-  ```
-- **Safety invariant**: Tools classified as `high` or `critical` (`hydra`, `john`, `sqlmap`, `nmap_aggressive`) are disabled by default and **cannot** have `requires_approval` disabled even by an administrator. Destructive flags (`sqlmap --os-shell`, `nmap -T5`, `--script`) remain permanently blocked in `mcp_server/tools.py`.
-- **Approving a queued scan (Two-Person Rule)**:
-  ```bash
-  # Must be called by an approver/admin DIFFERENT from requested_by
-  curl -X POST http://127.0.0.1:8000/api/v1/approvals/apr-xxxxxxxxxxxx/decide \
-    -H "Authorization: Bearer $TOK_SARA" \
-    -H "Content-Type: application/json" \
-    -d '{"decision":"approved","note":"Confirmed with SOC ticket #4412","execute_immediately":true}'
-  ```
-
----
-
-## 4. Configuring Local AI (Ollama / LM Studio / Hugging Face GGUF) & API Key Rotation
-
-### Option A: 100% Private Local Models via Ollama or LM Studio ($0 API Cost)
+Default `mock` mode needs no external model service.
 
 ```bash
-# Containerized Ollama alongside RedGate:
-docker compose --profile ollama up -d --build
-
-# Or pull a quantized Hugging Face GGUF model & create the custom redgate-analyst Modelfile:
-./scripts/setup_local_llm.sh ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
-
-# Or via LM Studio CLI:
-./scripts/setup_local_llm.sh lm_studio Qwen/Qwen2.5-Coder-7B-Instruct-GGUF Q5_K_M
+# No model download; configures .env for container networking:
+./scripts/setup_local_llm.sh --compose ollama
+# Explicit large download + model profile build:
+./scripts/setup_local_llm.sh --compose --pull ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
+# Host-run gateway/runtime:
+./scripts/setup_local_llm.sh --local ollama
 ```
 
-Switch runtimes live without restarting containers (Admin Web Console tab **Local AI & Quantization Hub** or REST API):
+Bundled Ollama is addressed **from gateway** as `http://ollama:11434/v1`, not `127.0.0.1`. Its model cache is a persistent volume. The helper's `--pull` path needs a working Docker/Ollama service and external model download access; it was not exercised against a real model here.
 
-```bash
-curl -X PUT http://127.0.0.1:8000/api/v1/models/runtime \
-  -H "Authorization: Bearer $TOK_KAVEH" \
-  -H "Content-Type: application/json" \
-  -d '{"provider":"ollama","base_url":"http://ollama:11434/v1","model":"redgate-analyst:latest","quantization":"Q4_K_M","context_length":8192}'
+LM Studio on a host needs an address reachable from the gateway container, an explicitly bound inference server, host routing and firewall controls. For Linux `host.docker.internal` requires an operator-managed Compose override such as:
+
+```yaml
+services:
+  gateway:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 ```
 
-Use `POST /api/v1/models/recommend` (or the Web Console VRAM/RAM calculator) to pick the optimal GGUF quantization (`Q3_K_M`..`Q8_0`/`FP16`) for your hardware. All local/custom open-weight models remain strictly governed by allowlists, static validators, Two-Person approvals, and the Go Sandbox (`bypass_policy_for_local_models: false`).
+Then configure, for example, `setup_local_llm.sh --compose --base-url http://host.docker.internal:1234/v1 lm_studio`. Do not expose the inference server unrestrictedly. Confirm its actual loaded model ID in `/v1/models`; a Hugging Face repository name is not necessarily that ID.
 
-### Option B: Cloud / Internal OpenAI-Compatible Proxy (vLLM / LiteLLM)
-
-Set in `.env`:
-```ini
-REDGATE_LLM_MODE=openai_compatible
-REDGATE_LLM_BASE_URL=http://ollama.internal:11434/v1
-REDGATE_LLM_MODEL=qwen2.5-coder:14b
-```
-
-### Option C: Claude Code Terminal Integration
-
-Open the repository root in Claude Code — `.mcp.json` automatically registers RedGate's stdio MCP server (`mcp_server/stdio_server.py`), `CLAUDE.md` loads architectural/security guardrails, and `.claude/commands/` provides `/project:new-skill`, `/project:new-mcp-tool`, and `/project:triage-report`.
-
-### Rotating LLM API Keys (Zero Downtime)
-
-`gateway/llm_proxy.py` reads `REDGATE_LLM_API_KEY_FILE` (`/run/secrets/llm_api_key`) dynamically on every request. Rotate without restarting containers:
+**Saved SQLite runtime configuration takes precedence over initial environment defaults.** The setup helper only edits `.env`; for an existing database update **Local AI → Runtime** using an assigned admin, or `PUT /api/v1/models/runtime`. Merely recreating gateway is not a reliable way to change saved model settings. A remote/cloud/proxied endpoint is not offline or automatically private.
 
 ```bash
 ./scripts/rotate_llm_key.sh
-# Prompts silently for new key, writes 0600 temp file, atomically renames into secrets/llm_api_key,
-# and logs only the truncated SHA-256 fingerprint transition.
 ```
 
-To revoke downstream keys, immediately invalidate the previous API key in your LLM gateway provider console after running `rotate_llm_key.sh`.
+Rotation prompts without echo, writes a restricted temporary file, then atomically replaces `secrets/llm_api_key`. The **directory** is mounted, so subsequent requests see the new inode. The configured key file takes precedence over the environment fallback when it exists. No restart is required for new requests; already-dispatched requests may still use the old key. Revoke the old provider credential separately after checking service health. Do not print tokens in logs or command arguments.
 
----
+## 5. Upgrade from the existing RedGate v2 schema
 
-## 5. Verifying Immutable Audit Log Integrity & PostgreSQL Upgrade
+1. Stop accepting new mission work and pause/cancel ongoing activity. Record the current deployment artifacts/config and verify the existing audit chain.
+2. Make a **consistent backup** and protect it off-host:
+
+   ```bash
+   ./scripts/backup_db.sh backups/pre-2.1.sqlite.gz
+   # Direct local database instead of Compose:
+   ./scripts/backup_db.sh --local data/redgate.db backups/pre-2.1-local.sqlite.gz
+   ```
+
+   The helper uses SQLite's backup API (WAL-aware), checks `quick_check`, writes gzip/0600 and refuses overwrites. Do **not** copy a live `.db` alone or discard its WAL. Retain config, skills and secrets separately under appropriate access control.
+3. Stop/recreate the old single gateway with the new image/source and matching configuration. Never use `docker compose down --volumes` during an upgrade.
+4. First startup applies additive `gateway/migrations/002_workspace.sql` under a transaction. `schema_migrations` records the filename/digest; subsequent boots verify it and do not reapply it. Existing runs, findings and audit records are preserved. No automatic old-run inventory backfill or ARTEX database import occurs.
+5. Check `/healthz` (cheap liveness), `/readyz` (MCP/runner readiness), `/api/v1/health` (tool availability), then authenticated `/api/v1/audit/verify`. Verify preserved records, a disposable local mission/evidence/retest, cross-engagement denial, external egress denial and a backup/restore rehearsal before live work.
+
+Do not edit an already-applied migration. Digest drift deliberately prevents startup. Diagnose deployment/source mismatch; do not delete the ledger merely to bypass it.
+
+### Rollback
+
+There is no destructive down migration. Stop **all** writers/services; preserve a consistent copy of the post-upgrade data for investigation; restore the checked pre-upgrade SQLite backup into the stopped data volume using your tested restore process. Ensure UID/GID 10000 ownership and that no stale `-wal`/`-shm` files from a different database remain. Start the previous approved images with their matching config/secrets. Verify SQLite integrity, original records and the audit chain before reopening access. Restore the backup only after confirming which new evidence would be lost; restoring a backup intentionally discards subsequent writes.
+
+## 6. Monitoring and measurement
 
 ```bash
-curl -s http://127.0.0.1:8000/api/v1/audit/verify \
-  -H "Authorization: Bearer $TOK_KAVEH" | jq .
+./scripts/redgate.sh logs gateway
+./scripts/redgate.sh status
+docker compose images
+docker stats --no-stream
 ```
 
-When upgrading to PostgreSQL (`docker compose --profile postgres up -d`), enforce database-level append-only grants in addition to hash chaining:
+Monitor restarts, memory/pids, disk/WAL growth, task warnings, audit integrity and backup age. Audit verification scans the ledger and is more expensive than `/healthz`. Retention/export encryption and independent audit anchoring are operator-managed.
 
-```sql
-REVOKE UPDATE, DELETE, TRUNCATE ON TABLE audit_log FROM redgate_app;
-GRANT SELECT, INSERT ON TABLE audit_log TO redgate_app;
-```
+For a fair `full` vs `lite` comparison record image IDs/digests, architecture, cold/warm cache state, build times, image sizes, readiness latency and idle/loaded RSS/CPU on the **same** host and workload. No such benchmark is claimed for this release. The optional `postgres` profile only provisions a database container; RedGate still persists to SQLite and has no PostgreSQL migration/driver support.

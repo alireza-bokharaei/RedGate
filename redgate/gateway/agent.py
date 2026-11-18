@@ -15,12 +15,13 @@ every RedGate Iteration 1 safety invariant intact:
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import json
 import os
 import time
 import uuid
-from typing import Any
+from typing import Any, Awaitable, Callable
 
 from gateway.db import Database, utc_now_iso
 from gateway.llm_proxy import LLMProxyError, LLMProxyGateway
@@ -29,6 +30,8 @@ from gateway.memory import AgentMemoryEngine
 from gateway.policy import ScopePolicyEngine
 from gateway.sandbox_client import GoSandboxClient, SandboxClientError
 from gateway.validators import ScriptValidationOrchestrator
+from gateway.workspace_store import WorkspaceStore
+from mcp_server.tools import ToolParamValidationError, validate_tool_params
 
 SEVERITY_BASE_SCORE: dict[str, int] = {
     "critical": 95,
@@ -130,19 +133,32 @@ class PersonalizedReconAgent:
         http_port_override: int | None = None,
         http_scheme_override: str | None = None,
         http_path_override: str | None = None,
+        http_method_override: str | None = None,
         queue_gated_followups: bool = True,
         operator_focus: str = "",
+        before_action: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
         """Run the full bounded recon-to-report pipeline and persist results + audit chain."""
         run_id = f"rcn-{uuid.uuid4().hex[:12]}"
         started_at = utc_now_iso()
         t0 = time.monotonic()
 
-        root_scope = self.scope.evaluate_target(engagement_id, raw_target, resolve_dns=True)
+        root_scope = await asyncio.to_thread(self.scope.evaluate_target, engagement_id, raw_target, resolve_dns=True)
         if not root_scope.allowed:
             raise PermissionError(root_scope.reason or "Target is outside engagement allowlist.")
 
         root_target = root_scope.normalized_target
+
+        async def checkpoint(stage: str, tool: str) -> None:
+            # Scope, RoE and DNS pins are live policy, not a snapshot trusted for
+            # the entire run. Mission reservations happen before each side effect.
+            nonlocal root_scope
+            root_scope = await asyncio.to_thread(self.scope.evaluate_target, engagement_id, root_target, resolve_dns=True)
+            if not root_scope.allowed:
+                raise PermissionError(root_scope.reason or "Scope revoked during the run.")
+            if before_action is not None:
+                await before_action(stage, tool)
+
         spec = dict(skill_record["spec"])
         prio_rules = dict(spec.get("prioritization_rules") or {})
         steps_log: list[dict[str, Any]] = []
@@ -174,7 +190,7 @@ class PersonalizedReconAgent:
                     sub_candidates.append(fqdn)
 
         for cand in sub_candidates[:10]:
-            sub_res = self.scope.evaluate_target(engagement_id, cand, resolve_dns=True)
+            sub_res = await asyncio.to_thread(self.scope.evaluate_target, engagement_id, cand, resolve_dns=True)
             discovered_assets.append(
                 {
                     "asset": sub_res.normalized_target,
@@ -235,6 +251,7 @@ class PersonalizedReconAgent:
             if mode == "recommend_approval":
                 pol = self.db.get_tool_policy(tool)
                 if queue_gated_followups and pol and pol["enabled"]:
+                    await checkpoint(stage, f"approval:{tool}")
                     apr = self.db.enqueue_approval(
                         engagement_id=engagement_id,
                         request_type="tool_scan",
@@ -296,6 +313,7 @@ class PersonalizedReconAgent:
                     if (sb_scheme == "http" and sb_port == 80) or (sb_scheme == "https" and sb_port == 443)
                     else f"{sb_scheme}://{sb_host_fmt}:{sb_port}{sb_path}"
                 )
+                await checkpoint(stage, f"generate:{lang}")
                 sb_step = await self._run_sandbox_verification(
                     operator_id=operator_id,
                     quota_period=quota_period,
@@ -304,6 +322,7 @@ class PersonalizedReconAgent:
                     target_url=sb_url,
                     language=lang,
                     objective=obj,
+                    before_action=checkpoint,
                 )
                 steps_log.append({"stage": stage, "tool": f"sandbox:{lang}", **sb_step})
                 if sb_step.get("status") == "completed":
@@ -318,7 +337,7 @@ class PersonalizedReconAgent:
                     {"stage": stage, "tool": tool, "status": "blocked", "detail": "Disabled by tool_policy."}
                 )
                 continue
-            if pol["requires_approval"]:
+            if pol["requires_approval"] or pol["risk_level"] != "low":
                 steps_log.append(
                     {
                         "stage": stage,
@@ -337,9 +356,17 @@ class PersonalizedReconAgent:
                 http_port_override=http_port_override,
                 http_scheme_override=http_scheme_override,
                 http_path_override=http_path_override,
+                http_method_override=http_method_override,
             )
 
             try:
+                await checkpoint(stage, tool)
+                # DNS checks yield to policy updates. Re-read the live tool gate
+                # after that await, not a stale pre-check snapshot.
+                pol = self.db.get_tool_policy(tool)
+                if not pol or not pol["enabled"] or pol["requires_approval"] or pol["risk_level"] != "low":
+                    raise PermissionError("Tool policy changed before execution; action refused.")
+                call_params = validate_tool_params(tool, call_params, pol["allowed_params"])
                 exec_res = await self.mcp.call_tool(
                     tool_name=tool,
                     target=root_target,
@@ -389,7 +416,7 @@ class PersonalizedReconAgent:
                         http_observation = json.loads(stdout)
                     elif tool == "tls_inspect":
                         tls_observation = json.loads(stdout)
-            except (MCPClientError, json.JSONDecodeError) as exc:
+            except (MCPClientError, ToolParamValidationError, json.JSONDecodeError) as exc:
                 steps_log.append(
                     {"stage": stage, "tool": tool, "status": "failed", "detail": str(exc)[:220]}
                 )
@@ -417,6 +444,7 @@ class PersonalizedReconAgent:
         # ------------------------------------------------------------------
         clean_focus, _ = self.llm.scrub_secrets(operator_focus)
         mem_context = self.memory.format_prompt_context(recalled_memories)
+        await checkpoint("triage_synthesis", "llm:triage")
         synthesis, tokens_used, provider_used, model_used = await self.llm.synthesize_recon_triage(
             engagement_id=engagement_id,
             target=root_target,
@@ -448,6 +476,7 @@ class PersonalizedReconAgent:
             "steps_executed": len(steps_log),
             "queued_approvals": len(queued_approvals),
             "llm_tokens_used": tokens_used,
+            "open_ports": open_ports,
         }
 
         finished_at = utc_now_iso()
@@ -534,6 +563,7 @@ class PersonalizedReconAgent:
         )
         saved_run["audit_id"] = audit["id"]
         saved_run["audit_hash"] = audit["entry_hash"]
+        WorkspaceStore(self.db).ingest_run(saved_run)
         return saved_run
 
     async def _run_sandbox_verification(
@@ -546,6 +576,7 @@ class PersonalizedReconAgent:
         target_url: str,
         language: str,
         objective: str,
+        before_action: Callable[[str, str], Awaitable[None]] | None = None,
     ) -> dict[str, Any]:
         s_pol = self.db.get_script_policy(language)
         if not s_pol or not s_pol["enabled"]:
@@ -559,7 +590,8 @@ class PersonalizedReconAgent:
                 script_policy=s_pol,
             )
             self.db.record_llm_tokens(operator_id, quota_period, artifact.tokens_used)
-            val = self.validator.validate(
+            val = await asyncio.to_thread(
+                self.validator.validate,
                 language=language,
                 script=artifact.script,
                 script_policy=s_pol,
@@ -568,6 +600,14 @@ class PersonalizedReconAgent:
             if not val.passed:
                 return {"status": "validation_failed", "detail": val.rejection_summary() or "rejected"}
 
+            if before_action:
+                await before_action("sandbox_verify", f"execute:{language}")
+            scope_res = await asyncio.to_thread(self.scope.evaluate_target, engagement_id, scope_res.normalized_target, resolve_dns=True)
+            if not scope_res.allowed:
+                raise PermissionError(scope_res.reason or "Scope revoked before sandbox execution.")
+            s_pol = self.db.get_script_policy(language)
+            if not s_pol or not s_pol["enabled"]:
+                raise PermissionError("Script language was disabled before sandbox execution.")
             sb_res = await self.sandbox.execute_script(
                 language=language,
                 script=artifact.script,
@@ -620,6 +660,7 @@ class PersonalizedReconAgent:
         http_port_override: int | None,
         http_scheme_override: str | None,
         http_path_override: str | None,
+        http_method_override: str | None = None,
     ) -> dict[str, Any]:
         if tool != "http_headers":
             return base_params
@@ -643,7 +684,7 @@ class PersonalizedReconAgent:
             path = http_path_override or str(base_params.get("path", "/"))
         return {
             "scheme": scheme,
-            "method": str(base_params.get("method", "GET")),
+            "method": http_method_override or str(base_params.get("method", "GET")),
             "port": port,
             "path": path,
         }

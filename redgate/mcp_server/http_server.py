@@ -15,6 +15,7 @@ from typing import Any
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
 
+from mcp_server import __version__
 from mcp_server.executor import MCPToolExecutor
 from mcp_server.tools import MCP_TOOL_CATALOG, ToolParamValidationError
 
@@ -28,7 +29,7 @@ executor = MCPToolExecutor(max_concurrent=MAX_CONCURRENT, max_output_bytes=MAX_O
 
 app = FastAPI(
     title="RedGate Layer 2 — MCP Tool Server",
-    version="1.0.0",
+    version=__version__,
     docs_url=None,
     redoc_url=None,
 )
@@ -46,6 +47,7 @@ async def health() -> dict[str, Any]:
     return {
         "status": "ok",
         "service": "redgate-mcp-server",
+        "version": __version__,
         "protocol": "MCP/2024-11-05",
         "registered_tools": list(MCP_TOOL_CATALOG.keys()),
         "max_concurrent": MAX_CONCURRENT,
@@ -71,7 +73,7 @@ async def mcp_rpc(
                 "id": rpc_id,
                 "result": {
                     "protocolVersion": "2024-11-05",
-                    "serverInfo": {"name": "redgate-mcp-server", "version": "1.0.0"},
+                    "serverInfo": {"name": "redgate-mcp-server", "version": __version__},
                     "capabilities": {"tools": {"listChanged": False}},
                 },
             }

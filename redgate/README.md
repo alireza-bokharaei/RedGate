@@ -1,103 +1,117 @@
-# RedGate v2 — Auditable Local-AI Security Testing & Recon Platform
+# RedGate 2.1.0 — Governed Mission Workspace
 
-RedGate v2 combines a **policy-controlled, 3-layer security verification platform** (FastAPI Governance Gateway + Python MCP Tool Server + isolated Go Sandbox Runner) with a **100% private, offline-capable, personalized Local-AI Recon & Triage Agent**.
+[فارسی / English — README دوزبانه](../README.md) · [Verification record](docs/VERIFICATION_2.1.0.md)
 
-> **Authorized Use Only**: RedGate is built exclusively for defensive posture verification and authorized assessments under signed written Rules of Engagement (RoE). It contains zero exploit payloads, credential-attack automation, or evasion logic. See [`SECURITY.md`](SECURITY.md) and [`LIMITATIONS.md`](LIMITATIONS.md).
+**Authorized, read-only security assessment orchestration with local-AI support.**
 
----
+نسخهٔ **۲٫۱٫۰** مدیریت مأموریت، گراف دارایی و بررسی، شواهد HTTP و بازآزمایی محدود یافته‌ها را به RedGate اضافه می‌کند. **Bash، Go، JavaScript و Docker** در پروژه استفاده شده‌اند. این نسخه پیاده‌سازی مستقلِ قابلیت‌های منتخبِ الهام‌گرفته از ARTEX است؛ ادغام کامل کد ARTEX نیست. [جزئیات فارسی و محدودهٔ تغییرات](docs/RELEASE_2.1.0_FA.md).
 
-## Core Capabilities
+> Use only with written authorization and an active Rules of Engagement (RoE) window. Reading a dashboard never starts a scan. Local models and generated scripts are untrusted. See [Security](SECURITY.md) and [Limitations](LIMITATIONS.md).
 
-- **Private Local AI & Quantization Hub** (`gateway/model_hub.py`, `config/local_models.yaml`, `config/Modelfile.redgate`)
-  Run quantized **GGUF** open-weight models from **Hugging Face** locally via **Ollama** (`:11434`), **LM Studio** (`:1234`), or any OpenAI-compatible runtime (**vLLM**, **llama.cpp**) — offline, private, and with `$0` API cost. Includes a hardware-aware VRAM/RAM quantization sizer (`Q3_K_M`..`Q8_0`/`FP16`), ready-to-run `ollama pull hf.co/...` & `lms get` commands, and a custom analyst `Modelfile` that prevents false-positive refusals on benign security terms while keeping all deterministic policy gates enforced (`bypass_policy_for_local_models: false`).
-- **Personalized Agent Brain — Skills & Persistent Memory** (`gateway/skills.py`, `skills/*.yaml`, `gateway/memory.py`)
-  Reusable YAML/API hunting playbooks (**Skills**) and secret-scrubbed, engagement-isolated **Memory** (`methodology`, `preference`, `false_positive_rule`, `target_note`). Marking a finding as a false positive automatically teaches the agent to suppress recurring noise on future runs.
-- **Automated Subdomain-to-Report Recon & Dual-Verification** (`gateway/agent.py`)
-  Progresses from allowlist-validated subdomains and DNS lookups through paced TCP probing, HTTP security headers, TLS inspection, and **Dual-Verification** (independent Go verification script compiled and executed in Layer 3 Go Sandbox to boost finding confidence and eliminate single-tool anomalies), pausing medium-risk tools (`nmap -T2`) in the **Two-Person Approval Queue** and exporting full **Markdown reports**.
-- **Explicit Human-Judgment Gates** (`LIMITATIONS.md`, `PATCH /api/v1/recon/findings/{id}`)
-  Every finding reports `ai_confidence`, `dual_verified`, and `requires_human_judgment` where analyst context (business logic, BOLA/IDOR, upstream WAF/CDN controls) cannot be replaced by AI.
-- **Native Claude Code Integration** (`CLAUDE.md`, `.mcp.json`, `.claude/commands/`)
-  Connects Claude Code directly to RedGate's allowlist-enforcing stdio MCP server (`mcp_server/stdio_server.py`) with built-in slash commands (`/project:new-skill`, `/project:new-mcp-tool`, `/project:triage-report`).
-- **Hard Security & Audit Invariants**
-  SHA-256 hashed Bearer tokens + RBAC (`operator` / `approver` / `admin`), per-engagement allowlists + DNS rebinding & cloud-metadata blocking, 4-language static code validation (**Python AST**, **Bash + ShellCheck**, **`gofmt` + `go vet` + `go build`**, **Node + ESLint**), `CGO_ENABLED=0` **Go Sandbox Runner** (`prlimit`, process-group reaping, scrubbed env, `/tmp/sandbox`), and an append-only **SHA-256 hash-chained `audit_log`**.
+## What's new in 2.1
 
----
+- **Durable missions:** save a scope-checked plan, explicitly start/pause/resume/cancel, keep completed work after restart, and export Markdown/JSON. Owner identity, per-operator quota, absolute deadline and action reservations remain attached to the mission—even when an assigned admin controls it.
+- **Two graphs:** an engagement asset inventory and a mission exploration trail linking goals → intents → checks → findings/evidence/retests. Discovery is not tested coverage; a finding is not proof of exploitability.
+- **HTTP evidence:** a native Go collector performs anonymous, DNS-pinned HEAD/GET requests. HEAD/no response body is the default. No credentials, arbitrary headers, query strings, redirects, MITM proxy or cookie replay. Optional text previews are capped at 8 KiB and heuristically redacted.
+- **Conservative finding retests:** repeat a supported missing-security-header check against its original endpoint. Append `still_present`, `not_observed` or `inconclusive` history; never overwrite the analyst verdict or original evidence.
+- **Local JavaScript console:** keyboard-operable SVG graphs, safe text rendering, same-origin requests, responsive workspace and stale-response guards. No frontend build server or external CDN is needed at runtime.
+- **Container/operations work:** multi-stage `full`/`lite` images, a separate evidence-only runner target, non-root/read-only service containers, locked dependencies, private bootstrap/rotation, consistent SQLite backups, and one polyglot verification command. **Container size/speed improvements have not been measured.**
 
-## Repository Structure
+Existing skills, engagement-scoped memory, local-model/quantization hub, bounded recon, four-language validators, two-person approval and hash-chained audit records are retained.
+
+## Architecture and languages
 
 ```text
-redgate/
-├── gateway/            # Layer 1: FastAPI Governance Gateway, Local AI Hub, Skills, Memory, Recon Agent,
-│   ├── validators/     #          4-language static validators (Python, Bash, Go, JS)
-│   └── static/         #          9-tab Web Management Console (zero external CDN deps)
-├── mcp_server/         # Layer 2: Python MCP Server (HTTP JSON-RPC + Claude Code stdio, strict param allowlists)
-├── sandbox_runner/     # Layer 3: Isolated Go Sandbox Runner (CGO_ENABLED=0, SHA-256 check, prlimit, egress rules)
-├── config/             # Externalized YAML policies, Hugging Face GGUF catalog & Ollama Modelfile.redgate
-├── skills/             # Built-in declarative recon & dual-verification playbooks
-├── scripts/            # Secret bootstrap, local launcher, Ollama/LM Studio GGUF setup & zero-downtime key rotation
-├── .claude/commands/   # Claude Code slash commands (/project:new-skill, new-mcp-tool, triage-report)
-├── docs/               # Architecture, Deployment & Persian prompt review documentation
-└── tests/              # End-to-end tests: policies, audit hash chain, 4 validators, Go sandbox & v2 agent
+Browser (vanilla JavaScript + SVG)
+              │ same-origin Bearer-authenticated API
+FastAPI Gateway ─── SQLite WAL + additive migrations + append-only ledgers
+  policy/RoE/RBAC/quotas │ mission coordinator │ local-LLM proxy/validators
+              ├── internal-token MCP tool service (Python)
+              └── internal-token Go runner: fixed HTTP collector / script adapters
+Bash: lifecycle, credentials, model setup, backups and verification
+Docker Compose: separate control / target-egress / inference networks
 ```
 
----
+The native collector pins its actual network dial and verifies TLS against the logical hostname. **Arbitrary scripts do not acquire an OS/network sandbox merely by running under Go.** Production needs a separately enforced, default-deny egress policy and an appropriate hostile-code isolation boundary. Rendered firewall rules are not installed by RedGate.
 
-## Quickstart
+## Quickstart — Docker Compose
 
-### 1. Docker Compose Deployment (Recommended)
+From the repository root:
 
 ```bash
-./scripts/bootstrap_env.sh                 # Generates random operator tokens + .env (chmod 0600)
-docker compose up -d --build               # Add `--profile ollama` to run containerized Ollama
+cd redgate
+./scripts/bootstrap_env.sh       # Prints PRIVATE operator tokens once; stores hashes
+./scripts/redgate.sh doctor
+./scripts/redgate.sh up --full   # Docker Engine + Compose v2.20+ + BuildKit
 ```
 
-Optional — pull a quantized Hugging Face GGUF model and build the local `redgate-analyst` profile:
+Open **http://127.0.0.1:8000**, press **Token**, and enter your private operator token. API documentation is at `/docs`. Compose disables demo login, publishes only the gateway on loopback, and retains data in the `redgate_data` volume. Do not publish the service without TLS and network access control. Review the sample scopes before any live assessment.
 
 ```bash
-./scripts/setup_local_llm.sh ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
-# Or with LM Studio CLI:
-./scripts/setup_local_llm.sh lm_studio Qwen/Qwen2.5-Coder-7B-Instruct-GGUF Q5_K_M
+./scripts/redgate.sh up --lite   # Python/Bash adapters; NO Go/JS validation/execution
+./scripts/redgate.sh status
+./scripts/redgate.sh backup     # WAL-consistent gzip snapshot, mode 0600
+./scripts/redgate.sh down       # Stops stack, KEEPS volumes
 ```
 
-Open `http://127.0.0.1:8000` (Web Console) or `http://127.0.0.1:8000/docs` (OpenAPI reference).
+`full` is the default and keeps all four language toolchains. `lite` still supports missions, MCP checks, graphs, evidence and retests; skills needing Go/JS adapters cannot complete those steps. `/api/v1/health` reports installed validator tools and runner languages. Container builds/execution remain an explicit deployment validation step; see [verification status](docs/VERIFICATION_2.1.0.md).
 
-### 2. Direct Local Run (Linux VM)
+### Local inference (optional)
+
+The default is deterministic **mock** mode: no model download or external AI call.
 
 ```bash
-./scripts/start_local.sh
+# Configure the container-reachable Ollama URL; does NOT download model files:
+./scripts/setup_local_llm.sh --compose ollama
+# Explicitly start bundled Ollama and fetch/build a model (potentially many GB):
+./scripts/setup_local_llm.sh --compose --pull ollama Qwen/Qwen2.5-Coder-14B-Instruct-GGUF Q4_K_M
+# Host-run gateway instead of Compose:
+./scripts/setup_local_llm.sh --local lm_studio Qwen/Qwen2.5-Coder-7B-Instruct-GGUF Q5_K_M
 ```
 
-### 3. Using with Claude Code
+The helper writes `.env` for **initial** database setup. Existing saved runtime settings take precedence: update them through the admin **Local AI → Runtime** panel/API. A host-only `127.0.0.1` inference URL is not reachable from the gateway container. Model downloads, model licensing, runtime networking and hardware sizing remain operator responsibilities. Offline inference requires previously downloaded weights and a genuinely local endpoint.
 
-Open the repository directory in Claude Code; `.mcp.json` automatically connects to `mcp_server.stdio_server` and `CLAUDE.md` enforces project guardrails. Run `/project:new-skill`, `/project:new-mcp-tool`, or `/project:triage-report` directly from the terminal.
+## Local development and checks
 
-### 4. Running Tests & Linters
+Linux, Python 3.11+, Go 1.22+ (verified with 1.26.6), Node 22.13+ and ShellCheck are required for the complete checks. Use a dedicated VM; direct local execution is **not host isolation**.
 
 ```bash
-shellcheck scripts/*.sh
-node --check gateway/static/app.js
-(cd sandbox_runner && go test -v ./... && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../bin/sandbox-runner .)
-PYTHONPATH=. pytest -v tests/
+# From repository root:
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --require-hashes -r redgate/requirements-dev.txt
+cd redgate
+npm ci --ignore-scripts
+./scripts/verify.sh              # Bash + JS + Go race/vet/build + Python suite
+./scripts/start_local.sh         # Loopback-only, mock AI, temporary private tokens
 ```
 
----
+The launcher prints the path of a private token manifest; it does not automatically source `.env`. For an **explicit private lab only**, `REDGATE_DEMO_MODE=true ./scripts/start_local.sh` exposes temporary lab identities to anyone who can reach that gateway. Never use demo mode for a deployment or a real engagement. See [browser smoke testing](docs/VERIFICATION_2.1.0.md) for a reproducible local end-to-end UI check.
 
-## Key API Endpoints
+## Workspace API
 
-| Area | Endpoints |
+Every endpoint below requires a Bearer token assigned to the engagement. Mission controls additionally require its owner or an assigned admin. Full request/response schemas are available in `/docs`.
+
+| Area | Routes under `/api/v1` |
 |---|---|
-| **Auto Recon Agent** | `POST /api/v1/recon/run`, `GET /api/v1/recon/runs`, `GET /api/v1/recon/runs/{id}/report.md`, `PATCH /api/v1/recon/findings/{id}` |
-| **Skills & Memory Brain** | `GET/POST /api/v1/skills`, `GET/POST /api/v1/memory`, `PATCH /api/v1/memory/{id}` |
-| **Local AI & Quantization** | `GET /api/v1/models/hub`, `PUT /api/v1/models/runtime`, `POST /api/v1/models/recommend` |
-| **MCP Scans & Sandbox** | `POST /api/v1/scan`, `POST /api/v1/script/generate`, `POST /api/v1/script/validate`, `POST /api/v1/script/run` |
-| **Governance & Audit** | `GET/POST/PATCH /api/v1/allowlist`, `GET/PATCH /api/v1/policies/*`, `POST /api/v1/approvals/{id}/decide`, `GET /api/v1/audit/verify` |
+| Workspace | `GET /workspace?engagement_id=…` |
+| Missions | `POST/GET /missions`, `GET /missions/{id}`, `POST /missions/{id}/control` |
+| Mission outputs | `GET /missions/{id}/graph`, `/report.md`, `/export.json` |
+| Inventory | `GET /assets`, `GET /assets/graph` (engagement query required) |
+| Evidence | `POST /evidence/capture`, `GET /evidence`, `GET /evidence/{id}`, `/export.json` |
+| Retests | `POST /recon/findings/{id}/retest`, `GET /recon/findings/{id}/retests`, `/evidence` |
+| Existing recon | `POST /recon/run`, `GET /recon/runs`, `PATCH /recon/findings/{id}` |
+| Existing governance | `/skills`, `/memory`, `/models/*`, `/scan`, `/script/*`, `/approvals`, `/allowlist`, `/policies/*`, `/audit/verify` |
 
----
+Missions accept **1–8 hosts**, **1–64 actions** (default 24), and **10–1800 seconds** (default 300). At most **two missions globally / one per owner** may execute. The deadline starts on first start and keeps running while paused. Failed/reserved actions are not refunded. After a crash, resume is explicit and an interrupted, uncheckpointed action may be attempted again; this is not exactly-once delivery.
 
-## Documentation & License
+## Documentation and license
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — 3-layer + v2 agent architecture, Go sandbox rationale, and SQLite/PostgreSQL schema
-- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — Hardened Docker networking, Local AI setup, allowlist ops, and zero-downtime key rotation
-- [`LIMITATIONS.md`](LIMITATIONS.md) — Explicit technical boundaries, quantization trade-offs, and human-judgment requirements
-- [`SECURITY.md`](SECURITY.md) — Authorized testing & vulnerability disclosure policy
-- [`LICENSE`](LICENSE) — MIT License (with authorized security testing notice)
+- [Deployment, backup, upgrade and rollback](docs/DEPLOYMENT.md)
+- [Architecture and data integrity](docs/ARCHITECTURE.md)
+- [ARTEX capability mapping and licensing boundary](docs/ARTEX_SCOPE.md)
+- [2.1.0 Persian release notes](docs/RELEASE_2.1.0_FA.md)
+- [Tests performed and unverified deployment work](docs/VERIFICATION_2.1.0.md)
+- [Security](SECURITY.md) · [Limitations](LIMITATIONS.md) · [MIT license](LICENSE)
+
+No ARTEX source, assets or dependencies have been imported. This is not a claim of full ARTEX compatibility or of adopting its AGPL-licensed implementation. Third-party dependencies and any future imported code retain their own license obligations.

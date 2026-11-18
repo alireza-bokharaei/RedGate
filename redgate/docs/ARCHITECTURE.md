@@ -1,120 +1,86 @@
-# RedGate Architecture, Data Model & Design Justification
+# RedGate 2.1 Architecture and Data Integrity
 
-## 1. Multi-Layer Architecture Diagram
+## Components and boundaries
 
 ```text
-+======================================================================================+
-|                           OPERATOR / RED TEAM CONSOLE                                |
-|    CLI (curl)  |  Web Dashboard (/)  |  Approval Reviewer (lead/admin)               |
-+=======================================+==============================================+
-                                        | HTTPS + Authorization: Bearer <token>
-                                        v
-+======================================================================================+
-| LAYER 1 — CORE GATEWAY (Python 3.11+ / FastAPI)                   [control_net]      |
-|                                                                                      |
-|  [1] AuthN/AuthZ    : SHA-256 token lookup (hmac.compare_digest) + RBAC              |
-|  [2] Rate Limiter   : Sliding-window RPM per operator_id                             |
-|  [3] Scope Engine   : Engagement RoE window + IP/CIDR/Domain/Wildcard allowlist      |
-|                       + DNS Resolution Pinning + Cloud Metadata / Rebinding Block    |
-|  [4] Policy & Quota : tool_policy + script_policy + atomic call/token quota check    |
-|  [5] Approval Gate  : requires_approval -> approval_queue (Two-Person DB CHECK)      |
-|                                                                                      |
-|  Endpoints:                                                                          |
-|    POST /api/v1/scan              POST /api/v1/script/generate                       |
-|    POST /api/v1/script/validate   POST /api/v1/script/run                            |
-|    GET  /api/v1/approvals         POST /api/v1/approvals/{id}/decide                 |
-|    GET  /api/v1/audit             GET  /api/v1/audit/verify                          |
-|    GET/POST/PATCH /api/v1/allowlist   GET/PATCH /api/v1/policies                     |
-|    POST /api/v1/recon/run         GET  /api/v1/recon/runs/{id}/report.md             |
-|    PATCH /api/v1/recon/findings/{id}  GET/POST /api/v1/skills                        |
-|    GET/POST/PATCH /api/v1/memory  GET/PUT /api/v1/models/{hub,runtime,recommend}     |
-+==========+================================+================================+=========+
-           |                                |                                |
-           | X-Internal-Service-Token       | Restricted Prompt              | Append-Only
-           | (MCP JSON-RPC 2.0)             | + Secret Scrubber              | + SHA-256 Chain
-           v                                v                                v
-+========================+   +==============================+   +======================+
-| LAYER 2 — MCP SERVER   |   | AI PROXY + STATIC VALIDATORS |   | PERSISTENCE (SQLite  |
-| (Python / MCP 2024-11) |   |                              |   | WAL -> PostgreSQL)   |
-|                        |   | [A] LLM Proxy Gateway        |   |                      |
-| - JSON Schema tools    |   |  - Regex secret stripping    |   | - engagements        |
-| - Strict param white-  |   |  - Non-exploit guard         |   | - allowlist          |
-|   list (nmap -T1/-T2)  |   |  - Token quota metering      |   | - tool_policy        |
-| - Banned flags in code |   |  - OpenAI-compat (Ollama /   |   | - script_policy      |
-|   (no --os-shell, -T4) |   |    vLLM / Cloud) + Mock      |   | - validated_scripts  |
-| - High-risk disabled   |   |              |               |   | - quota              |
-|   (hydra/john/sqlmap)  |   |              v (UNTRUSTED)   |   | - approval_queue     |
-| - Bounded semaphore    |   | [B] 4-Language Validators    |   | - audit_log          |
-| - Subprocess argv only |   |  - Py : ast.parse + AST walk |   |   (NO UPDATE/DELETE  |
-| - Hard timeout + 64KB  |   |  - Sh : bash -n + shellcheck |   |    triggers + hash   |
-|   output cap           |   |  - Go : gofmt+list+vet+build |   |    chain prev->curr) |
-+===========+============+   |  - JS : node --check + eslint|   +======================+
-            |                |  - URL/IP scope literal check|
-            |                +==============+===============+
-            |                               | Validated Script + Expected SHA-256
-            |                               | + X-Internal-Service-Token
-            |                               v
-            |                +=========================================================+
-            |                | LAYER 3 — SANDBOX RUNNER (Go Static Binary, CGO=0)      |
-            |                |                                                         |
-            |                | - SHA-256 payload verification (blocks TOCTOU mutation) |
-            |                | - Read-only container FS; ephemeral /tmp/sandbox/job-*  |
-            |                | - Scrubbed env (zero host secrets inherited)            |
-            |                | - Kernel rlimits (prlimit CPU/FSIZE/NOFILE/AS)          |
-            |                | - Setpgid + SIGKILL(-pgid) on context timeout           |
-            |                | - Bounded 64KB stdout/stderr buffers                    |
-            |                | - Cloud metadata block + default-deny iptables ruleset  |
-            |                +===========================+=============================+
-            |                                            |
-            +--------------------+-----------------------+
-                                 | Constrained Egress ONLY to Allowlisted / Pinned IPs
-                                 v
-                  +------------------------------+
-                  | AUTHORIZED ENGAGEMENT TARGET |
-                  +------------------------------+
+Vanilla JS console / API client (one origin; Bearer token in session storage)
+       │
+       ▼
+Gateway — FastAPI, exactly one process per SQLite database
+  Auth/RBAC → RoE/scope/DNS policy → quota/approval → bounded dispatch → audit
+  ├─ MissionService: finite intent plan, lifecycle, checkpoints, report projections
+  ├─ WorkspaceStore: serialized short SQLite writes; engagement-bound references
+  ├─ EvidenceService: validates/redacts native observations; immutable snapshots
+  ├─ Existing skills/memory/recon/LLM hub + four-language static validators
+  │
+  ├── X-Internal-Service-Token → Python MCP tools (argv-only external processes)
+  ├── X-Internal-Service-Token → Go runner
+  │                               ├─ fixed anonymous pinned HTTP collector
+  │                               └─ digest-checked, bounded script processes
+  ├── configured local/remote inference endpoint (untrusted model output)
+  └── SQLite WAL: existing v2 data + additive workspace tables
 ```
 
----
+Compose separates `control_net` (internal), target-egress and inference networks. It publishes only the loopback gateway. Application pinning and process supervision are not an external firewall or per-job OS sandbox. Production hostile-code containment and IPv4/IPv6 egress enforcement must be provided independently. See [SECURITY.md](../SECURITY.md).
 
-## 2. Why Go Was Chosen for Layer 3 (Sandbox Runner)
+## Mission semantics
 
-Per Instruction #7, **Go (`sandbox_runner/`)** was selected over Python as the primary sandbox execution service for five concrete security and systems-engineering reasons:
+`MissionCreateRequest` accepts a bounded host list, snapshotted enabled Skill, HTTP endpoint settings, action budget and duration. Planning validates scope syntax/assignment **without DNS or target contact**. The root target becomes an intent/asset; merely being known is not coverage.
 
-1. **Minimal Attack Surface (`CGO_ENABLED=0` static binary)**: The runner compiles to a single ~5.7 MB dependency-free static binary with zero third-party packages and no dynamic interpreter state inside the control loop.
-2. **Safe Concurrent Process Supervision**: Go goroutines, channel semaphores (`chan struct{}`), and `context.WithTimeout` provide deterministic concurrency limits and race-free timeout handling without Python's GIL or `fork()`-in-multithreaded-process hazards.
-3. **Native Process-Group Containment (`syscall.SysProcAttr{Setpgid: true}`)**: Every untrusted script spawns inside its own process group. On timeout, `syscall.Kill(-pid, syscall.SIGKILL)` atomically reaps both the script interpreter and any forked child processes.
-4. **Bounded Memory Overhead**: Thread-safe `limitedBuffer` writers enforce hard byte caps (64 KB default) on `stdout` and `stderr` in constant memory, preventing output-flood OOM attacks against the runner.
-5. **Cryptographic Integrity Gate**: Constant-time token auth (`crypto/subtle.ConstantTimeCompare`) and `crypto/sha256` verification ensure the runner refuses any script that did not pass Layer 1's static validator.
+```text
+draft ──explicit start──► running ──all intents finished──► completed / failed
+  │                         │
+  ├─cancel──► cancelled     ├─pause──► pausing ──drain intent──► paused
+  └─pause───► paused        ├─cancel─► cancelling ──next action gate──► cancelled
+                             └─deadline/action cap──► budget_exhausted
+paused ──explicit resume, original identity authorized, deadline valid──► running
+restart: running/pausing → paused; cancelling → cancelled (never auto-resume)
+```
 
----
+An assigned admin may control a mission but cannot replace its original owner/quota. The execution owner must remain configured with an enabled credential digest and access to the engagement. The planner cannot enlarge the autonomous tool set; live scope/policy and low-risk status are rechecked on execution.
 
-## 3. Data Model Summary
+Reservations occur **before I/O**, under `BEGIN IMMEDIATE`; failures do not refund actions. Global/per-owner concurrency admission is also transactional. Owner API/LLM quotas remain enforced. This is a single-process coordinator with durable checkpoints, not a distributed lease/exactly-once queue. A crash between network I/O and checkpoint can lead to a repeated attempt only after explicit resume. Pause drains the current intent; cancel never retracts previously sent traffic.
 
-| Table | Purpose | Key Integrity / Security Controls |
-|---|---|---|
-| `engagements` | Signed engagement scope & RoE time window | `valid_from`, `valid_until`, `active` checked on every request |
-| `allowlist` | Approved IP, CIDR, exact domain, or `*.domain` per engagement | `FOREIGN KEY(engagement_id)`, `UNIQUE(engagement_id, target)`, metadata IPs blocked |
-| `tool_policy` | Tool enablement, max timeout, param whitelist JSON, risk, approval gate | High/critical risk tools disabled by default & locked to `requires_approval=1` |
-| `script_policy` | Per-language (`python`, `bash`, `go`, `javascript`) allowed/forbidden imports & regexes | Externalized in `config/script_policy.yaml` |
-| `validated_scripts` | Immutable registry of statically approved scripts | Stores canonical `sha256` verified by Go sandbox before execution |
-| `quota` | Per-operator call and LLM token accounting by period | Updated atomically inside `BEGIN IMMEDIATE` transactions |
-| `approval_queue` | Gated tool/script approval workflow | DB `CHECK (approved_by IS NULL OR approved_by != requested_by)` (Two-Person Rule) |
-| `llm_runtime_config` | Live-switchable LLM backend (`ollama`, `lm_studio`, `openai_compatible`, `mock`), GGUF model & quantization | SSRF/metadata URL validation + audited admin updates |
-| `agent_skills` | Built-in (`skills/*.yaml`) + operator custom recon playbooks | Validated against `tool_policy`; high-risk tools blocked; `nmap` locked to `recommend_approval` |
-| `agent_memory` | Personalized operator brain (`methodology`, `preference`, `false_positive_rule`, `target_note`) | Regex secret scrubbing on write; strict operator + per-engagement scope isolation |
-| `recon_runs` | End-to-end bounded recon executions (subdomain/DNS -> MCP + Go sandbox verify -> Markdown report) | Capped steps (`<= 6`), scoped targets only, linked to `approval_queue` |
-| `recon_findings` | Prioritized (`0-100`) findings with `ai_confidence`, `requires_human_judgment`, and analyst verdicts | `false_positive` verdict auto-learns a scoped `false_positive_rule` in `agent_memory` |
-| `audit_log` | Immutable operational & rejection ledger | `trg_audit_log_no_update` + `trg_audit_log_no_delete` triggers + SHA-256 `prev_hash -> entry_hash` chain |
+## Native evidence path
 
----
+1. Authenticate operator, authorize engagement, recheck RoE/scope and resolve a safe DNS pin.
+2. Require enabled low-risk/non-gated `http_headers` policy and whitelisted endpoint parameters.
+3. Reserve action/quota, then call Go `/http-evidence` using internal authentication and no environment proxy.
+4. Go validates the contract independently; dials only the gateway-supplied IP while retaining logical Host/SNI; verifies HTTPS certificates/TLS ≥1.2; never follows redirects or supplies credentials. The collector bounds concurrency, host/port pacing, deadlines, headers and eligible text previews.
+5. Gateway validates endpoint/method/connected pin and typed response, drops non-allowlisted headers, applies heuristic secret filtering, canonicalizes JSON and stores a SHA-256 snapshot. A separate audit entry anchors its identifier/digest.
 
-## 4. RedGate v2 Personalized Recon Agent & Claude Code Architecture
+HEAD and no body are defaults. Only explicit GET can request ≤8192 preview bytes. No query strings, arbitrary request headers, proxy URL, cookie jar, browser session or arbitrary replay exists. Evidence is a redacted application observation, not packet/TLS authenticity or proof against a compromised collector.
 
-1. **Local Model Hub & Quantization Sizer (`gateway/model_hub.py`, `config/local_models.yaml`, `config/Modelfile.redgate`)**:
-   - Supports live probing and zero-restart hot-switching across **Ollama** (`:11434`), **LM Studio** (`:1234`), generic **OpenAI-compatible** servers (vLLM / llama.cpp / cloud), and deterministic offline **Mock** mode.
-   - Estimates total model memory footprint (`weights + KV-cache + runtime overhead`) across `Q3_K_M`, `Q4_K_M`, `Q5_K_M`, `Q6_K`, `Q8_0`, and `FP16`, outputting ready-to-run `ollama pull hf.co/<org>/<repo>:<quant>` and `lms get` commands plus a domain-tuned `Modelfile` that avoids false refusals on legitimate security terms while preserving every deterministic RedGate policy gate (`bypass_policy_for_local_models: false`).
-2. **Skills + Persistent Memory Brain (`gateway/skills.py`, `gateway/memory.py`, `gateway/agent.py`)**:
-   - **Skills** define structured multi-stage pipelines (`dns_lookup`, `tcp_port_probe`, `http_headers`, `tls_inspect`, dual-verification in Go Sandbox, and approval-gated `nmap -T2`).
-   - **Memory** personalizes priority scoring, LLM triage synthesis, and noise reduction. Analyst verdicts on `recon_findings` feed back into `agent_memory` without leaking across engagements or operators.
-3. **Claude Code Integration (`CLAUDE.md`, `.mcp.json`, `.claude/commands/`)**:
-   - Connects Claude Code directly to `mcp_server/stdio_server.py` (including `list_recon_skills`) and provides guided terminal workflows (`/project:new-skill`, `/project:new-mcp-tool`, `/project:triage-report`) bound by RedGate's non-exploitation and validation invariants.
+Retesting derives **only** a supported missing-header finding's original completed HTTP settings. A successful 2xx with/without the header yields `not_observed`/`still_present`; non-2xx or plaintext HSTS yields `inconclusive`. New immutable evidence/history is linked; analyst verdict and original finding remain unchanged.
+
+## Storage and migration
+
+Existing `engagements`, `allowlist`, policies, quota, approval queue, validated scripts, recon runs/findings, skills/memory/model runtime and hash-chained `audit_log` remain in SQLite. Foreign keys are enabled on connections. Serialized short write transactions avoid awaiting network I/O under a SQLite write lock.
+
+`002_workspace.sql` adds:
+
+| Table | Purpose / integrity |
+|---|---|
+| `workspace_assets` | Engagement/kind/locator deduplication; domain, IP, service, endpoint; parent references |
+| `asset_runs` | Links observed asset coverage to authoritative recon runs |
+| `missions` | Owner, Skill/HTTP snapshot, lifecycle, budgets, absolute deadline |
+| `mission_intents` | Ordered targets, attempt count, checkpointed run, state/error |
+| `http_evidence` | Canonical redacted payload, digest, capture identity and mission/run references; UPDATE/DELETE abort triggers |
+| `finding_retests` | Finding/evidence link, actor, outcome, timestamp/note; UPDATE/DELETE abort triggers |
+| `schema_migrations` | Applied migration name/SHA-256/time; detects subsequent source drift |
+
+Migration application and digest registration are transactional and idempotent. Existing rows are not rewritten by this migration. Foreign-key existence alone is not authorization: store/service/API checks also require matching engagement/run/mission references. Database owners can defeat local triggers/checksums; trusted external audit anchors and encrypted backups are separate deployment concerns.
+
+## Graphs and browser behavior
+
+Graphs are deterministic **projections**, not another authoritative finding database. Asset IDs derive from engagement/kind/locator; graph node labels are DOM `textContent`, never HTML from target data. Missing/prototype-like kinds use a safe fallback. Keyboard Enter/Space operates the SVG nodes.
+
+Server asset/exploration caps are 200/500 nodes, with a 120-node client cap. Snapshot reads are bounded and never resolve DNS or launch a scan. Active polling occurs every ten seconds only while the workspace is visible. Reset/sequence guards discard responses from a prior identity, engagement or superseded refresh. Authenticated API responses carry `Cache-Control: no-store` and `Vary: Authorization`; credentials are not placed in URLs.
+
+Static files are served by gateway. Node/ESLint are validation/test toolchains, not a frontend production server. `full` images include all four script languages; `lite` omits Go/Node and advertises actual availability. The runner `evidence` target explicitly denies `/execute`, even if its base image happens to contain utilities.
+
+## Existing AI and adapter path
+
+The model hub estimates quantized-model memory; it does not guarantee capacity or output correctness. LLM output remains subject to prompt filtering, static validators, policy, approvals and digest verification. Runtime settings saved in SQLite take precedence over initial environment defaults. The configured API-key file is read per request and takes precedence over the environment fallback when present.
+
+Go script compilation is offline (`GOPROXY=off`, `GOSUMDB=off`) with a cache; caches are not an isolation boundary. The runner scrubs child environments, bounds output/time/resource usage and cleans process groups, but does not create per-job namespaces. Proposed IPv4 firewall commands are diagnostic only; requesting unsupported in-process firewall enforcement refuses scripts instead of claiming enforcement.

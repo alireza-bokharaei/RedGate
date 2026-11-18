@@ -1,0 +1,90 @@
+name: RedGate verification
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  polyglot:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: ${{ matrix.python }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22.22.3"
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version: "1.26.6"
+          cache: false
+      - name: Install locked development dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends shellcheck
+          python -m pip install --require-hashes -r redgate/requirements-dev.txt
+          npm ci --prefix redgate --ignore-scripts --no-audit --no-fund
+      - name: Bash, JavaScript, Go race/vet/build, Python integration tests
+        run: ./redgate/scripts/verify.sh
+
+  containers:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: [full, lite]
+    env:
+      REDGATE_IMAGE_FLAVOR: ${{ matrix.flavor }}
+      COMPOSE_PROJECT_NAME: redgate-ci-${{ github.run_id }}-${{ matrix.flavor }}
+    defaults:
+      run:
+        working-directory: redgate
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Private disposable CI credentials and Compose configuration
+        run: |
+          ./scripts/bootstrap_env.sh >/dev/null
+          docker compose config --quiet
+      - name: Build and run the selected container flavor
+        run: |
+          docker compose build --pull
+          docker compose up -d --wait --wait-timeout 180
+          python3 - <<'PY'
+          import json, os, urllib.request
+          opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+          with opener.open('http://127.0.0.1:8000/readyz', timeout=8) as response:
+              assert json.load(response)['status'] == 'ready'
+          with opener.open('http://127.0.0.1:8000/api/v1/health', timeout=8) as response:
+              health = json.load(response)
+          assert health['version'] == '2.1.0' and not health['demo_mode']
+          assert health['mcp_server']['status'] == health['sandbox_runner']['status'] == 'ok'
+          assert health['sandbox_runner']['egress_firewall_enforced'] is False
+          full = os.environ['REDGATE_IMAGE_FLAVOR'] == 'full'
+          assert health['validators']['go_vet_build'] is full
+          assert health['validators']['node_check'] is full
+          assert health['validators']['eslint'] is full
+          expected = {'python', 'bash', 'go', 'javascript'} if full else {'python', 'bash'}
+          assert set(health['sandbox_runner']['languages']) == expected
+          print('PASS: readiness, demo disabled and actual flavor capabilities')
+          PY
+      - name: Build the script-denying evidence-only target
+        if: matrix.flavor == 'lite'
+        run: docker build --target evidence -f sandbox_runner/Dockerfile -t redgate/runner:ci-evidence .
+      - name: Container status on failure
+        if: failure()
+        run: docker compose ps --all
+      - name: Remove disposable CI containers and volumes only
+        if: always()
+        run: docker compose down --volumes --remove-orphans

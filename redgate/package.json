@@ -1,0 +1,15 @@
+{
+  "name": "redgate-tooling",
+  "version": "2.1.0",
+  "private": true,
+  "description": "Pinned JavaScript validators and local console regression tests",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "test": "node --test tests/*.test.cjs",
+    "check": "node --check gateway/static/app.js && node --check gateway/static/workspace.js && node --check gateway/static/graph.js",
+    "lint": "eslint gateway/static/*.js tests/*.cjs",
+    "test:browser": "node tests/browser-smoke.cjs"
+  },
+  "dependencies": { "eslint": "10.15.0" },
+  "devDependencies": { "linkedom": "0.18.15", "playwright-core": "1.65.1" }
+}

@@ -25,7 +25,7 @@ class MCPBridgeClient:
 
     async def health(self) -> dict[str, Any]:
         try:
-            async with httpx.AsyncClient(timeout=3.0) as client:
+            async with httpx.AsyncClient(timeout=3.0, trust_env=False) as client:
                 resp = await client.get(f"{self.base_url}/health")
                 resp.raise_for_status()
                 return resp.json()
@@ -34,7 +34,7 @@ class MCPBridgeClient:
 
     async def list_tools(self) -> list[dict[str, Any]]:
         payload = {"jsonrpc": "2.0", "id": uuid.uuid4().hex[:8], "method": "tools/list", "params": {}}
-        async with httpx.AsyncClient(timeout=5.0) as client:
+        async with httpx.AsyncClient(timeout=5.0, trust_env=False) as client:
             resp = await client.post(
                 f"{self.base_url}/mcp",
                 headers={"X-Internal-Service-Token": self._internal_token},
@@ -69,7 +69,7 @@ class MCPBridgeClient:
             },
         }
         try:
-            async with httpx.AsyncClient(timeout=float(max_timeout + 10)) as client:
+            async with httpx.AsyncClient(timeout=float(max_timeout + 10), trust_env=False) as client:
                 resp = await client.post(
                     f"{self.base_url}/mcp",
                     headers={"X-Internal-Service-Token": self._internal_token},

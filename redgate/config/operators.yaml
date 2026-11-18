@@ -9,7 +9,8 @@ operators:
     display_name: "Alice (Red Team Operator)"
     role: "operator"
     token_hash_env: "REDGATE_TOKEN_HASH_OP_ALICE"
-    rate_limit_rpm: 10
+    # Interactive console reads are rate-limited separately from tool-call quotas.
+    rate_limit_rpm: 60
     quota:
       period: "daily"
       max_calls: 50
@@ -22,7 +23,7 @@ operators:
     display_name: "Sara (Red Team Lead / Approver)"
     role: "approver"
     token_hash_env: "REDGATE_TOKEN_HASH_LEAD_SARA"
-    rate_limit_rpm: 20
+    rate_limit_rpm: 120
     quota:
       period: "daily"
       max_calls: 100
@@ -35,7 +36,7 @@ operators:
     display_name: "Kaveh (Security Platform Admin)"
     role: "admin"
     token_hash_env: "REDGATE_TOKEN_HASH_ADMIN_KAVEH"
-    rate_limit_rpm: 30
+    rate_limit_rpm: 180
     quota:
       period: "daily"
       max_calls: 150

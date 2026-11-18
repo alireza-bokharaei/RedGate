@@ -19,11 +19,13 @@ UNCONDITIONALLY_BLOCKED_NETS: tuple[ipaddress.IPv4Network | ipaddress.IPv6Networ
     ipaddress.ip_network("169.254.170.2/32"),
     ipaddress.ip_network("100.100.100.200/32"),
     ipaddress.ip_network("fd00:ec2::254/128"),
+    # IPv4-mapped IPv6 literals/CIDRs must not hide the same destinations.
+    ipaddress.ip_network("::ffff:169.254.169.254/128"),
+    ipaddress.ip_network("::ffff:169.254.170.2/128"),
+    ipaddress.ip_network("::ffff:100.100.100.200/128"),
 )
 
-HOSTNAME_RE = re.compile(
-    r"^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$"
-)
+HOSTNAME_RE = re.compile(r"^(?:\*\.)?(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$")
 
 
 @dataclass
@@ -59,7 +61,10 @@ def normalize_target_input(raw: str) -> str:
     text = text.strip().lower().rstrip(".")
     if not text or any(ch.isspace() for ch in text) or text.startswith("-"):
         raise ValueError(f"Malformed target identifier '{raw}'.")
-    return text
+    try:
+        return str(ipaddress.ip_address(text))
+    except ValueError:
+        return text
 
 
 def validate_allowlist_entry_syntax(raw_target: str) -> str:
@@ -85,7 +90,9 @@ def validate_allowlist_entry_syntax(raw_target: str) -> str:
                     f"CIDR '{cleaned}' overlaps blocked cloud metadata range {blocked}."
                 )
         if net_obj.prefixlen < 16 and net_obj.version == 4:
-            raise ValueError("IPv4 CIDR broader than /16 is refused to prevent accidental overscoping.")
+            raise ValueError(
+                "IPv4 CIDR broader than /16 is refused to prevent accidental overscoping."
+            )
         return str(net_obj)
 
     # Validate exact or single-label wildcard hostname.
@@ -126,7 +133,7 @@ def _match_target_against_rules(target: str, rules: list[str]) -> str | None:
             return rule
         if rule_l.startswith("*."):
             suffix = rule_l[1:]  # e.g., ".lab.example"
-            base = rule_l[2:]    # e.g., "lab.example"
+            base = rule_l[2:]  # e.g., "lab.example"
             if target != base and target.endswith(suffix):
                 return rule
     return None
@@ -214,9 +221,7 @@ class ScopePolicyEngine:
         if ip_literal is not None:
             meta_err = self._check_ip_safety(ip_literal, rules)
             if meta_err and "metadata" in meta_err:
-                return ScopeCheckResult(
-                    allowed=False, normalized_target=target, reason=meta_err
-                )
+                return ScopeCheckResult(allowed=False, normalized_target=target, reason=meta_err)
 
         matched = _match_target_against_rules(target, rules)
         if matched is None:
@@ -286,12 +291,22 @@ class ScopePolicyEngine:
         for blocked in UNCONDITIONALLY_BLOCKED_NETS:
             if ip_obj in blocked:
                 return f"address {ip_obj} is in blocked cloud metadata range {blocked}"
-        if self.block_link_local and ip_obj.is_link_local:
+        routed_ip = (
+            ip_obj.ipv4_mapped
+            if isinstance(ip_obj, ipaddress.IPv6Address) and ip_obj.ipv4_mapped
+            else ip_obj
+        )
+        if routed_ip.is_unspecified:
+            return f"address {ip_obj} is unspecified (not an assessment destination)"
+        if self.block_link_local and routed_ip.is_link_local:
             return f"address {ip_obj} is link-local (blocked against metadata/rebinding abuse)"
-        if self.block_multicast and ip_obj.is_multicast:
+        if self.block_multicast and routed_ip.is_multicast:
             return f"address {ip_obj} is multicast (disallowed)"
-        if self.block_loopback and ip_obj.is_loopback:
-            if not _is_explicitly_allowlisted_ip(ip_obj, explicit_rules):
+        if self.block_loopback and routed_ip.is_loopback:
+            if not (
+                _is_explicitly_allowlisted_ip(ip_obj, explicit_rules)
+                or _is_explicitly_allowlisted_ip(routed_ip, explicit_rules)
+            ):
                 return f"address {ip_obj} is loopback and not explicitly allowlisted"
         return None
 
