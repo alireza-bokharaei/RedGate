@@ -118,6 +118,25 @@ class MissionService:
         if mode_id:
             if self.registry is None:
                 raise ValueError("Operational modes are not configured on this Gateway.")
+            # A composed spec ("pentest+ssl_tls_analysis") is a first-class mode: the
+            # narrowest ceiling of its parts applies and the mandatory obligations are
+            # the union, so composing never loosens a limit.
+            composition = None
+            if "+" in str(mode_id):
+                composed, composition = self.registry.compose(
+                    [p.strip() for p in str(mode_id).split("+") if p.strip()]
+                )
+                if composed.mode_id != mode_id:
+                    raise ValueError(
+                        f"Composed mode '{mode_id}' does not match the computed order "
+                        f"'{composed.mode_id}'."
+                    )
+            elif self.registry.is_composition_alias(mode_id):
+                # A declared shorthand ("pentest_plus_tls") resolves to the same
+                # composed definition, and the audit says which parts it named.
+                composed, composition = self.registry.compose([mode_id])
+                composition["requested_as"] = mode_id
+                mode_id = composed.mode_id
             mode = self.registry.enforce_ceiling(
                 self.db,
                 mode_id,
@@ -133,6 +152,8 @@ class MissionService:
                 "expansion_clauses": list(mode.expansion_clauses),
                 "captured_at": dt.datetime.now(dt.timezone.utc).isoformat(),
             }
+            if composition is not None:
+                mode_ceiling["composition"] = composition
 
         mission = self.store.create_mission(
             engagement_id=request.engagement_id,

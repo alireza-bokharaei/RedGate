@@ -21,8 +21,10 @@ from gateway.binary_triage import BinaryTriageError, triage
 from gateway.capabilities import CapabilityError, CapabilityRegistry, mode_label
 from gateway.capability_models import (
     AgentPlanRequest,
+    ApproachRequest,
     BinaryTriageRequest,
     CapabilityQuery,
+    ComposeRequest,
     ExpansionDecision,
     ExpansionRequestCreate,
     GateEvaluationRequest,
@@ -98,6 +100,16 @@ def capability_router(
             "modes": registry.describe(),
             "layers": registry.layers(),
             "tls_audit": registry.session_brief(db)["tls_audit"],
+            "composition": {
+                "max_modes": registry.composition_spec().get("max_modes", 1),
+                "rules": registry.composition_spec().get("rules") or {},
+                "allowed": registry.composition_allowed(),
+                "note": (
+                    "Composition widens the permitted capability set only: the narrowest "
+                    "ceiling wins, mandatory obligations are the union, and expansion "
+                    "clauses are intersected."
+                ),
+            },
             "expansion": registry.session_brief(db)["expansion"],
             "evidence_gate": registry.session_brief(db)["evidence_gate"],
             "agents": {"total": len(list_roles())},
@@ -268,6 +280,68 @@ def capability_router(
             for cap in (request.capabilities or registry.capabilities_for(request.mode_id))
         ]
         return {"mode_id": request.mode_id, "decisions": decisions}
+
+    @router.post("/capabilities/compose")
+    async def compose_capabilities(
+        request: ComposeRequest, principal: OperatorPrincipal = Depends(get_principal)
+    ) -> dict[str, Any]:
+        """Resolve a composition without declaring it; nothing is executed."""
+        try:
+            mode, audit = registry.compose(list(request.modes))
+        except CapabilityError as exc:
+            raise HTTPException(status_code=422, detail=redact_text(str(exc))[:500]) from exc
+        return {
+            "mode": {
+                "id": mode.mode_id,
+                "label": mode.label,
+                "ceiling": {
+                    "max_hosts": mode.ceiling.max_hosts,
+                    "max_actions": mode.ceiling.max_actions,
+                    "max_seconds": mode.ceiling.max_seconds,
+                    "concurrent_missions": mode.ceiling.concurrent_missions,
+                },
+                "mandatory_capabilities": sorted(mode.mandatory_capabilities),
+                "capabilities": sorted(mode.capabilities),
+            },
+            "audit": audit,
+            "operator_id": principal.operator_id,
+        }
+
+    @router.post("/decide/approach")
+    async def decide_approach(
+        request: ApproachRequest, principal: OperatorPrincipal = Depends(get_principal)
+    ) -> dict[str, Any]:
+        """Deterministic next-step suggestions for one target (advisory only)."""
+        ensure_access(principal, request.engagement_id)
+        assets = store.list_assets(request.engagement_id)
+        history = db.list_audit_log(request.engagement_id) if hasattr(db, "list_audit_log") else []
+        with guarded(principal, request.engagement_id, "capability:decide_approach", request.target):
+            plan = registry.decide_approach(
+                target=request.target,
+                observations=request.observations,
+                assets=assets,
+                mode_id=request.mode_id,
+                history=history,
+            )
+        db.write_audit_log(
+            engagement_id=request.engagement_id,
+            operator_id=principal.operator_id,
+            target=request.target,
+            tool_or_script="capability:decide_approach",
+            params={
+                "mode_id": request.mode_id,
+                "observation_keys": sorted(request.observations),
+                "already_run": request.already_run,
+            },
+            status="completed",
+            stdout_summary=(
+                "Advisory plan: "
+                + (", ".join(step["tool"] for step in plan["recommended"][:4]) or "no step")
+            ),
+        )
+        plan["engagement_id"] = request.engagement_id
+        plan["operator_id"] = principal.operator_id
+        return plan
 
     @router.post("/capabilities/toggle")
     async def toggle_modes(

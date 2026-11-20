@@ -240,7 +240,7 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `config/allowlist.yaml` | Authorized targets, engagement windows/status and DNS controls |
 | `config/operators.yaml` | Identity, role, quota, token-hash environment names and engagement access |
 | `config/tool_policy.yaml` | Tool availability, limits and risk levels |
-| `config/capabilities.yaml` | 2.2 operational modes, ceilings, TLS profile, expansion limits and evidence-gate questions |
+| `config/capabilities.yaml` | Capability manifest: six operational modes, mode composition rules, ceilings, TLS profile, expansion limits and evidence-gate questions |
 | `config/policies.yaml` | 2.3 control model: three postures, the four two-person policies, and the per-tool flag surface |
 | `config/script_policy.yaml` | Script validation/execution policy |
 | `config/llm_proxy.yaml` | Initial model-proxy settings |
@@ -293,7 +293,9 @@ Interactive schemas are available at **`/docs`**. Workspace routes below require
 |---|---|
 | `GET /api/v1/capabilities` | Describe modes, layers, gate questions and invariants |
 | `POST /api/v1/session/start` | Session-start protocol: mission, scope, RoE, budget and TLS status |
-| `POST /api/v1/capabilities/resolve` | Allow/deny decision per capability in a mode |
+| `POST /api/v1/capabilities/resolve` | Allow/deny decision per capability in a mode (single or composed) |
+| `POST /api/v1/capabilities/compose` | Resolve `"pentest+ssl_tls_analysis"` without declaring it |
+| `POST /api/v1/decide/approach` | Deterministic, advisory next-step plan for a target |
 | `POST /api/v1/capabilities/toggle` | Enable/disable modes (admin only) |
 | `POST /api/v1/tls/audit` | Deep TLS analysis of an in-scope target; immutable, hashed record |
 | `GET /api/v1/tls/audits` | Engagement-scoped TLS audit history |

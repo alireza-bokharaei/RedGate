@@ -77,6 +77,39 @@ read from the ledger rather than from memory:
 A brief is a statement of fact, not a plan: if TLS has not been audited it says
 `pending: true`, and if pwntools is not installed it says so.
 
+### 2a. Modes, composition and the decision engine
+
+Six modes are declared in `config/capabilities.yaml`: `vulnerability_discovery`,
+`bug_bounty`, `pentest`, `ctf`, `assessment` and `ssl_tls_analysis`. Modes with a
+transport surface (all but `ctf`) make `tls_deep_analysis` mandatory.
+
+**Composition.** A mission may name more than one mode, either through a declared
+shorthand (`"mode_id": "pentest_plus_tls"`) or explicitly
+(`"mode_id": "pentest+ssl_tls_analysis"`). Composition widens the permitted
+capability set and nothing else:
+
+| Rule | Effect |
+|---|---|
+| capabilities | union of the parts (minus an explicit `remove`, which can never drop a mandatory capability) |
+| mandatory | union — an obligation cannot be composed away |
+| ceiling | the **minimum** of `max_hosts` / `max_actions` / `max_seconds` / `concurrent_missions` |
+| expansion clauses | **intersection** — composition cannot manufacture a widening clause |
+| size | at most 3 parts, each a declared mode; every part must also be on the admin allow-list |
+
+`POST /api/v1/capabilities/compose` resolves a combination without declaring it.
+A composed mission stores the resolved ceiling plus the composition audit under
+`mode_ceiling.composition`, so the ledger shows which parts merged and which one
+shrank the ceiling.
+
+**Decision engine.** `POST /api/v1/decide/approach` maps observations (TLS, web
+surface, leaked paths, input surface, injection hints, directory services, cloud
+naming) onto a prioritised list of governed next steps. Each step names the
+`tool:` policy row that governs it, anything already in the audit history is
+reported as `skipped_as_already_run`, and the whole response is marked
+`advisory_only: true` with `basis: "deterministic rules over supplied
+observations; no model call"`. The endpoint never executes anything; the step
+still has to pass scope, argv, consent and policy through `/offensive/tools/run`.
+
 ---
 
 ## 3. Tool execution — 144 tools, deny-by-default argv
@@ -338,6 +371,12 @@ POST /api/v1/offensive/loops
 POST /api/v1/offensive/loops/{id}/iterate | /kill | /gate
 GET  /api/v1/offensive/brain       POST /api/v1/offensive/brain
 GET  /api/v1/offensive/brief             Session Start Protocol
+
+GET  /api/v1/capabilities                 modes, layers, composition, gate, TLS profile
+POST /api/v1/capabilities/compose         resolve "a+b" without declaring it
+POST /api/v1/capabilities/resolve         per-capability decision for a mode (or composed mode)
+POST /api/v1/decide/approach              deterministic next steps (advisory only)
+POST /api/v1/session/start                declare a session against a (composed) mode
 ```
 
 Every refusal is written to `audit_log` before the HTTP error is returned, so an

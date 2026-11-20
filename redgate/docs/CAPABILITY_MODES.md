@@ -14,7 +14,8 @@ not a claim of feature parity with any referenced upstream project.
 | Component | File | Role |
 |---|---|---|
 | Mode/capability policy | `config/capabilities.yaml` | Declarative ceilings, capability sets, TLS profile, expansion limits, gate questions |
-| Policy engine | `gateway/capabilities.py` | Validates the manifest, resolves capabilities, enforces ceilings |
+| Policy engine | `gateway/capabilities.py` | Validates the manifest, resolves capabilities, enforces ceilings, composes modes, proposes next steps |
+| Mode composition | `config/capabilities.yaml` (`composition:`) | Named combinations, `max_modes: 3`, and the one-directional merge rules |
 | Deep TLS analysis | `gateway/tls_audit.py` | Pinned handshakes, protocol sweep, cipher/certificate/HSTS evaluation |
 | DER reader | `gateway/x509_lite.py` | Dependency-free certificate facts (stdlib only) |
 | Evidence gate | `gateway/evidence_gate.py` | Deterministic seven-question confirmation |
@@ -24,6 +25,7 @@ not a claim of feature parity with any referenced upstream project.
 | API | `gateway/capability_api.py` | `/api/v1/capabilities`, `/tls/*`, `/expansion/*`, `/gate/*`, `/agents/*`, `/binary/*`, `/session/start` |
 | Storage | `gateway/migrations/003_capability_modes.sql` | `tls_audits`, `expansion_requests`, `evidence_gate_results`, mission mode columns |
 | Tests | `tests/test_capability_modes.py` | 65 tests (policy, gate, TLS, expansion, ELF, X.509) |
+| Tests | `tests/test_mode_composition.py` | 23 tests (six modes, composition rules, aliases, decision engine, composed request contracts) |
 
 ---
 
@@ -70,12 +72,84 @@ Every mode has a validated ceiling which is clamped against hard model limits
 (`MODEL_HARD_LIMITS`: 8 hosts, 128 actions, 3600 s). A manifest that declares a
 larger ceiling is rejected at start-up, so a typo cannot widen the platform.
 
-Modes with a TLS surface (`vulnerability_discovery`, `bug_bounty`, `pentest`,
-`assessment`) declare `tls_deep_analysis` as a **mandatory** capability. The
-session-start brief reports whether that duty is still pending.
+Six modes are declared:
 
-`ctf` has no mandatory TLS duty (it is an offline scenario) and cannot request
-scope expansion.
+| Mode | Intent | Mandatory capability | Notes |
+|---|---|---|---|
+| `vulnerability_discovery` | breadth-first, read-only | `tls_deep_analysis` | proposals for new targets |
+| `bug_bounty` | in-program testing + reporting | `tls_deep_analysis` | report drafting, duplicate checks |
+| `pentest` | full engagement | `tls_deep_analysis` | chain analysis, PoC lifecycle |
+| `assessment` | review-oriented | `tls_deep_analysis` | correlation, reporting |
+| `ssl_tls_analysis` | transport-only engagement | `tls_deep_analysis` | narrowest surface; no host fan-out |
+| `ctf` | offline scenario | *none* | no network scope expansion |
+
+Modes with a TLS surface declare `tls_deep_analysis` as a **mandatory**
+capability, so it cannot be switched off while such a mode is active. The
+session-start brief reports whether that duty is still pending. `ctf` has no
+mandatory TLS duty and cannot request scope expansion.
+
+### 3a. Composing modes
+
+A real engagement is rarely one thing: a transport review is usually bolted onto
+a web assessment. `config/capabilities.yaml` therefore declares named
+compositions (`pentest_plus_tls`, `bug_bounty_plus_tls`, …) and accepts an
+explicit `a+b` spec, which `CapabilityRegistry.parse_mode()` resolves.
+
+```http
+POST /api/v1/capabilities/compose
+{"modes": ["pentest", "ssl_tls_analysis"]}
+→ {"mode": {"id": "pentest+ssl_tls_analysis", "ceiling": {...},
+            "mandatory_capabilities": ["tls_deep_analysis"], ...},
+   "audit": {"mode_ids": [...], "capabilities_added": [], "ceiling": {...},
+             "rule": "narrowest ceiling wins; mandatory capabilities cannot be removed"}}
+```
+
+Composition is deliberately **one-directional**. It widens the set of permitted
+capabilities and nothing else:
+
+| Rule | Enforced by |
+|---|---|
+| `capabilities = base ∪ add − remove` | `CapabilityRegistry.compose()` |
+| mandatory capabilities are the union and are re-added after any `remove` | same |
+| ceiling is the **minimum** of every part (`max_hosts`, `max_actions`, `max_seconds`, `concurrent_missions`) | same |
+| expansion clauses are **intersected**, so composition cannot manufacture a widening clause | same |
+| at most `max_modes: 3` parts, each part must be a declared mode | same |
+| the result is still clamped by model hard limits, the admin mode toggle, posture, signed scope and the allowlist | `enforce_ceiling`, `resolve`, `scan_runner` |
+
+A composed mode is accepted anywhere a mode id is accepted: `POST /missions`
+(`mode_id: "pentest+ssl_tls_analysis"` or the shorthand `"pentest_plus_tls"`),
+`/capabilities/resolve`, `/session/start`. The mission stores the resolved
+ceiling **and** the composition audit under `mode_ceiling.composition`, so the
+record shows which parts were merged and which shrank the ceiling.
+`mode_enabled` requires **every** part to be on the administrator's allow-list:
+composing cannot smuggle a disabled mode back in.
+
+### 3b. Decision engine
+
+`POST /api/v1/decide/approach` turns observations into a prioritised, governed
+next step. It is a deterministic rule engine, not a model call:
+
+```http
+POST /api/v1/decide/approach
+{"engagement_id": "ENG-2026-001", "target": "198.51.100.10",
+ "mode_id": "pentest+ssl_tls_analysis",
+ "observations": {"https": true, "server_header": "nginx", "forms": true}}
+→ {"signals": ["tls_or_https", "input_surface"],
+   "recommended": [{"tool": "testssl.sh", "policy": "tool:testssl.sh",
+                    "why": "...", "priority": 10, "evidence": "tls_or_https"}, ...],
+   "skipped_as_already_run": [], "advisory_only": true,
+   "next_call": "POST /api/v1/offensive/tools/run with tool='testssl.sh'"}
+```
+
+- Signals: TLS/HTTPS, web surface, discoverable paths, input surface, injection
+  hint, directory service, cloud naming. No signal at all falls back to `nmap`.
+- Every step names the `tool:` policy row that governs it; nothing is executed
+  by this endpoint — the operator (or the mission planner) still goes through
+  `POST /offensive/tools/run`, scope, consent and policy.
+- Anything already present in the audit history is reported in
+  `skipped_as_already_run` instead of being silently dropped.
+- The response is `advisory_only: true` with `basis` stating that no model was
+  called, and the call itself is written to the audit ledger.
 
 ---
 
@@ -265,3 +339,9 @@ cannot authorise anything.
   raw evidence, and is engagement-scoped.
 - All 2.1 behaviour is preserved when `mode_id` is omitted, which is what the
   existing test-suite continues to assert.
+- Composition refuses fewer than two distinct parts, more than three, and any id
+  that is not a declared mode. A shorthand alias is accepted, but the stored
+  `mode_id` is always the canonical `a+b` spelling.
+- The decision engine only reads what the caller supplies plus stored assets and
+  audit history. It never probes on its own, and an empty observation set is a
+  legitimate answer (`no_signal` → `nmap`), not an error.

@@ -65,8 +65,9 @@ def test_manifest_declares_the_documented_modes(registry):
         "pentest",
         "ctf",
         "assessment",
+        "ssl_tls_analysis",
     }
-    assert registry.manifest_version == "2.2"
+    assert registry.manifest_version == "2.3"
     for mode in registry.describe():
         assert mode["ceiling"]["max_actions"] <= 128
         assert mode["ceiling"]["max_hosts"] <= 8
@@ -1112,7 +1113,7 @@ async def test_capabilities_endpoint_is_honest_about_restrictions(ws):
     body = response.json()
     assert body["invariants"]["two_person_rule"] is True
     assert body["invariants"]["exploit_generation"] is False
-    assert body["manifest_version"] == "2.2"
+    assert body["manifest_version"] == "2.3"
     layer_status = {layer["id"]: layer["status"] for layer in body["layers"]}
     assert layer_status["binary_low_level"] == "restricted"
     assert all(layer["provenance"] for layer in body["layers"])

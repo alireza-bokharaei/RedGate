@@ -46,6 +46,14 @@ throwaway loopback TLS server with a locally minted certificate and needs only t
 - **Add a capability**: declare it in `config/capabilities.yaml` under the modes that
   may use it, then intersect it with a `tool_policy` row in `gateway/capabilities.py`.
   Add a positive and a negative test in `tests/test_capability_modes.py`.
+- **Compose modes**: combinations are declared under `composition:` in the manifest and
+  merged by `CapabilityRegistry.compose()`. The merge is one-directional — capabilities
+  union, mandatory capabilities union, ceilings take the minimum, expansion clauses
+  intersect. Never add a merge rule that can raise a ceiling or drop an obligation, and
+  keep `tests/test_mode_composition.py` green.
+- **Decision engine**: `decide_approach()` is a deterministic rule engine over supplied
+  observations. It may propose, never execute, and every step must name the policy row
+  that governs it. Do not introduce a model call there.
 - **Add a gate question**: append it to the manifest, decide whether it is blocking in
   `gateway/evidence_gate.py`, and add a failure fixture. More than one non-blocking
   question weakens `candidate`/`rejected` semantics.

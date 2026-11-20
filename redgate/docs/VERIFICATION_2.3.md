@@ -86,6 +86,27 @@ With a real MCP service on `:8001` (`catalog_size: 144`, 12 groups) and a copy o
 | `readelf ../../etc/passwd -h` | **422**, path refused |
 | gateway with the MCP service stopped | `status: unavailable` (bridge error quoted), **not** a 500 stack trace |
 
+## Modes, composition and the decision engine
+
+Run against the same live ledger (`.arena/live.db`, `ENG-2026-001`):
+
+| Step | Request | Result |
+|---|---|---|
+| 42 | `GET /api/v1/capabilities` | `manifest_version: 2.3`, six modes, `composition.max_modes: 3`, six named combinations |
+| 43 | `POST /capabilities/compose` `{pentest, ssl_tls_analysis}` | `pentest+ssl_tls_analysis`; ceiling 8/64/1800; `mandatory_capabilities: ["tls_deep_analysis"]` |
+| 44 | `POST /capabilities/compose` with four modes | **422** `At most 3 modes may be composed (asked for 4).` |
+| 45 | `POST /capabilities/compose` with `nope` | **422** `Unknown operational mode 'nope'. Available: [...]` |
+| 46 | `POST /missions` `mode_id: "pentest+ssl_tls_analysis"` | **201** `msn-465ba09e15c94018a3ef`; `mode_ceiling.composition.mode_ids == ["pentest","ssl_tls_analysis"]` |
+| 47 | `POST /missions` `mode_id: "pentest_plus_tls"` (shorthand) | **201** `msn-d8732a68e26846bfb89d`; stored as `pentest+ssl_tls_analysis`, `composition.requested_as: "pentest_plus_tls"` |
+| 48 | `POST /decide/approach` `{https, server_header, forms}` | signals `tls_or_https`, `input_surface`; first step `testssl.sh` (priority 10), then `tls_inspect`, `arjun`, `dalfox`; `advisory_only: true` |
+| 49 | `POST /decide/approach` with no observations | `no_signal`; single step `nmap`; `next_call` names `/offensive/tools/run` |
+| 50 | `POST /session/start` `mode_id: "assessment+ssl_tls_analysis"` | **200**; audit row `Session declared: mode=assessment+ssl_tls_analysis tls_complete=False` |
+| 51 | `audit_log` after the above | `capability:decide_approach` rows present (`Advisory plan: testssl.sh, tls_inspect, arjun, dalfox`) |
+
+The important negative result is step 44: a composition cannot exceed three
+parts, the narrowest ceiling always wins, and no combination can drop
+`tls_deep_analysis`.
+
 ## Two bugs found and fixed during this run
 
 1. `POST /bounty/reports` with a non-existent `check_id` returned **500** via an
@@ -107,7 +128,8 @@ With a real MCP service on `:8001` (`catalog_size: 144`, 12 groups) and a copy o
 
 ```
 tests/test_offensive_surface.py                                71 passed
-tests/ (minus e2e / agent_v2 / collector)                     232 passed, 3 environmental failures
+tests/test_mode_composition.py                                 23 passed
+tests/ (minus e2e / agent_v2 / collector)                     255 passed, 3 environmental failures
 ruff check .                                                   clean
 ```
 

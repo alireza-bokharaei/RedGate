@@ -30,6 +30,10 @@ MODEL_HARD_LIMITS: dict[str, int] = {
 
 CAPABILITY_MODE_POLICY = "redgate_capability_mode"
 
+#: The prompt's sixth mode. Mandatory whenever a target speaks TLS; declared once
+#: so the Gateway, the API and the decision engine agree on a single constant.
+SSL_TLS_MODE_ID = "ssl_tls_analysis"
+
 
 class CapabilityError(ValueError):
     """A requested mode, capability or ceiling is not permitted by policy."""
@@ -175,6 +179,10 @@ class CapabilityRegistry:
 
     def get_mode(self, mode_id: str) -> ModeDefinition:
         mode = self._modes.get(str(mode_id))
+        if mode is None and self.is_composition_alias(mode_id):
+            # A declared shorthand resolves to the composed definition; the id it
+            # returns is the canonical "a+b" spelling, never the alias.
+            return self.compose([str(mode_id)])[0]
         if mode is None:
             raise CapabilityError(
                 f"Unknown operational mode '{mode_id}'. Available: {self.mode_ids() or 'none'}."
@@ -207,6 +215,238 @@ class CapabilityRegistry:
         ]
 
     # ------------------------------------------------------------------
+    # Mode composition (the prompt's modes are combinable)
+    # ------------------------------------------------------------------
+    def composition_spec(self) -> dict[str, Any]:
+        return dict(self._manifest.get("composition") or {})
+
+    def composition_allowed(self) -> list[dict[str, Any]]:
+        rows = self.composition_spec().get("allowed") or []
+        return [dict(r) for r in rows if r.get("id") and r.get("base")]
+
+    def is_composition_alias(self, value: str) -> bool:
+        """True when ``value`` names one of the declared compositions, not a mode."""
+        return any(row["id"] == str(value).strip() for row in self.composition_allowed())
+
+    def _resolve_alias(self, value: str) -> list[str]:
+        value = str(value).strip()
+        for row in self.composition_allowed():
+            if row["id"] == value:
+                return [str(row["base"]), *[str(a) for a in row.get("add") or []]]
+        return [value]
+
+    def compose(self, mode_ids: list[str]) -> tuple[ModeDefinition, dict[str, Any]]:
+        """Merge several modes into one effective definition.
+
+        Composition widens *the set of permitted capabilities*; it never widens
+        the ceiling. The narrowest ceiling wins, mandatory capabilities are the
+        union (so a composed mode cannot shed an obligation), and expansion
+        clauses are intersected, so composing cannot manufacture a widening
+        clause the base mode did not declare.
+        """
+        spec = self.composition_spec()
+        if not spec.get("enabled", False):
+            raise CapabilityError("Mode composition is not enabled on this Gateway.")
+        expanded: list[str] = []
+        for raw in mode_ids:
+            for part in self._resolve_alias(raw):
+                if part not in expanded:
+                    expanded.append(part)
+        if len(expanded) < 2:
+            raise CapabilityError("Composing requires at least two distinct modes.")
+        limit = int(spec.get("max_modes", 3) or 3)
+        if len(expanded) > limit:
+            raise CapabilityError(f"At most {limit} modes may be composed (asked for {len(expanded)}).")
+
+        modes = [self.get_mode(m) for m in expanded]
+        remove_raw = [str(r) for r in (spec.get("remove") or [])]
+        capabilities: set[str] = set()
+        mandatory: set[str] = set()
+        for mode in modes:
+            capabilities |= set(mode.capabilities)
+            mandatory |= set(mode.mandatory_capabilities)
+        removed = sorted(capabilities & set(remove_raw))
+        capabilities -= set(remove_raw)
+        # An obligation cannot be composed away.
+        capabilities |= mandatory
+
+        ceiling = ModeCeiling(
+            max_hosts=min(m.ceiling.max_hosts for m in modes),
+            max_actions=min(m.ceiling.max_actions for m in modes),
+            max_seconds=min(m.ceiling.max_seconds for m in modes),
+            concurrent_missions=min(m.ceiling.concurrent_missions for m in modes),
+        )
+        clauses = set(modes[0].expansion_clauses)
+        for mode in modes[1:]:
+            clauses &= set(mode.expansion_clauses)
+
+        composed = ModeDefinition(
+            mode_id="+".join(expanded),
+            label=" + ".join(m.label for m in modes),
+            summary="Composed mode; the narrowest ceiling of its parts applies.",
+            default_skill=modes[0].default_skill,
+            ceiling=ceiling,
+            capabilities=frozenset(capabilities),
+            mandatory_capabilities=frozenset(mandatory),
+            expansion_clauses=tuple(sorted(clauses)),
+            expansion_max=min(m.expansion_max for m in modes),
+            expansion_max_hosts=min(m.expansion_max_hosts for m in modes),
+            expansion_requires_approver=any(m.expansion_requires_approver for m in modes),
+        )
+        audit = {
+            "mode_ids": expanded,
+            "capabilities_added": sorted(set().union(*[m.capabilities for m in modes]) - set(modes[0].capabilities)),
+            "capabilities_removed": removed,
+            "mandatory": sorted(mandatory),
+            "ceiling": {
+                "max_hosts": ceiling.max_hosts,
+                "max_actions": ceiling.max_actions,
+                "max_seconds": ceiling.max_seconds,
+            },
+            "expansion_clauses": sorted(clauses),
+            "rule": "narrowest ceiling wins; mandatory capabilities cannot be removed",
+        }
+        return composed, audit
+
+    def parse_mode(self, mode_spec: Any) -> ModeDefinition:
+        """Accept ``"pentest"``, ``"pentest+ssl_tls_analysis"`` or a list."""
+        if isinstance(mode_spec, (list, tuple)):
+            parts = [str(p) for p in mode_spec]
+            if len(parts) == 1:
+                return self.get_mode(parts[0])
+            return self.compose(parts)[0]
+        text = str(mode_spec or "").strip()
+        if not text:
+            raise CapabilityError("A mode id is required.")
+        if "+" in text:
+            return self.compose([p.strip() for p in text.split("+") if p.strip()])[0]
+        return self.get_mode(text)
+
+    # ------------------------------------------------------------------
+    # Intelligent Decision Engine
+    # ------------------------------------------------------------------
+    def decide_approach(
+        self,
+        *,
+        target: str,
+        observations: dict[str, Any] | None = None,
+        assets: list[dict[str, Any]] | None = None,
+        mode_id: str | None = None,
+        history: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        """Propose the next governed action for a target, with a stated basis.
+
+        This is a deterministic rule engine, not a model: every recommendation
+        names the observation that triggered it, the catalogue tools it would
+        use, and the policy row that governs them. It returns proposals only —
+        nothing here executes, expands scope or raises a budget.
+        """
+        obs = {str(k).lower(): v for k, v in (observations or {}).items()}
+        asset_rows = [dict(a) for a in (assets or [])]
+        seen = [dict(h) for h in (history or [])]
+
+        def truthy(key: str) -> bool:
+            value = obs.get(key)
+            if isinstance(value, str):
+                return value.strip().lower() in {"1", "true", "yes", "present", "open"}
+            return bool(value)
+
+        signals: list[str] = []
+        steps: list[dict[str, Any]] = []
+
+        def step(tool: str, policy: str, why: str, priority: int, evidence: str) -> None:
+            steps.append(
+                {
+                    "tool": tool,
+                    "policy": policy,
+                    "why": why,
+                    "priority": priority,
+                    "evidence": evidence,
+                }
+            )
+
+        # TLS first: the prompt makes it mandatory for any TLS target.
+        if truthy("tls") or truthy("https") or truthy("port_443_open"):
+            signals.append("tls_or_https")
+            step("testssl.sh", "tool:testssl.sh", "TLS surface present; deep analysis is mandatory.", 10, "tls_or_https")
+            step("tls_inspect", "tool:tls_inspect", "Pinned handshake for protocol and certificate facts.", 11, "tls_or_https")
+
+        if truthy("web") or truthy("http_200") or truthy("server_header"):
+            signals.append("web_surface")
+            step("whatweb", "tool:whatweb", "HTTP responded; fingerprint the stack before choosing classes.", 20, "web_surface")
+            step("nuclei", "tool:nuclei", "Template sweep for known classes on the fingerprinted stack.", 30, "web_surface")
+
+        if truthy("directory_listing") or truthy("robots_disclosed"):
+            signals.append("discoverable_paths")
+            step("feroxbuster", "tool:feroxbuster", "Paths leaked; enumerate recursively within budget.", 35, "discoverable_paths")
+
+        if truthy("parameters") or truthy("forms"):
+            signals.append("input_surface")
+            step("arjun", "tool:arjun", "Input surface found; discover hidden parameters first.", 40, "input_surface")
+            step("dalfox", "tool:dalfox", "Parameter reflected; test XSS classes cheaply.", 45, "input_surface")
+
+        if truthy("db_error") or truthy("sql_error") or truthy("parameterized_suspect"):
+            signals.append("injection_hint")
+            step("sqlmap", "tool:sqlmap", "Database error leaks a SQL surface; verify injection.", 50, "injection_hint")
+
+        if truthy("smb_open") or truthy("ldap_open") or truthy("kerberos_open"):
+            signals.append("directory_service")
+            step("enum4linux", "tool:enum4linux", "Directory service reachable; enumerate before credentialed paths.", 60, "directory_service")
+
+        if truthy("s3_bucket") or truthy("cloud_name"):
+            signals.append("cloud_surface")
+            step("cloud_enum", "tool:cloud_enum", "Cloud naming observed; check for public storage.", 65, "cloud_surface")
+
+        if not steps:
+            signals.append("no_signal")
+            step("nmap", "tool:nmap", "Nothing known yet; start with service detection.", 5, "no_signal")
+
+        # Skip anything already done, and say so rather than silently dropping it.
+        done = {str(h.get("tool")) for h in seen if h.get("tool")}
+        skipped = [s for s in steps if s["tool"] in done]
+        steps = [s for s in steps if s["tool"] not in done]
+        steps.sort(key=lambda s: s["priority"])
+
+        notes: list[str] = []
+        mode_note = None
+        if mode_id:
+            try:
+                mode = self.parse_mode(mode_id)
+                mode_note = {
+                    "mode_id": mode.mode_id,
+                    "ceiling": {
+                        "max_hosts": mode.ceiling.max_hosts,
+                        "max_actions": mode.ceiling.max_actions,
+                        "max_seconds": mode.ceiling.max_seconds,
+                    },
+                    "mandatory_capabilities": sorted(mode.mandatory_capabilities),
+                }
+                if SSL_TLS_MODE_ID in mode.mandatory_capabilities and not any(
+                    s["tool"] in {"testssl.sh", "tls_inspect", "sslyze", "sslscan"} for s in steps
+                ):
+                    notes.append(
+                        "The active mode makes TLS analysis mandatory; a TLS step is missing "
+                        "because it already ran or the target exposes no TLS."
+                    )
+            except CapabilityError as exc:
+                notes.append(f"Mode '{mode_id}' could not be resolved: {exc}")
+
+        return {
+            "target": target,
+            "signals": signals,
+            "recommended": steps,
+            "skipped_as_already_run": skipped,
+            "asset_count": len(asset_rows),
+            "mode": mode_note,
+            "notes": notes,
+            "advisory_only": True,
+            "basis": "deterministic rules over supplied observations; no model call",
+            "next_call": (
+                f"POST /api/v1/offensive/tools/run with tool={steps[0]['tool']!r}" if steps else None
+            ),
+        }
+
+    # ------------------------------------------------------------------
     # Toggles held in the SQLite tool_policy table (admin controlled)
     # ------------------------------------------------------------------
     def db_toggle(self, db: Any) -> dict[str, Any]:
@@ -222,11 +462,18 @@ class CapabilityRegistry:
         }
 
     def mode_enabled(self, db: Any, mode_id: str) -> tuple[bool, str]:
+        """A composed mode is enabled only when every participating mode is."""
         toggle = self.db_toggle(db)
         if not toggle["enabled"]:
             return False, "Capability modes are disabled by administrator policy."
-        if toggle["modes"] is not None and mode_id not in toggle["modes"]:
-            return False, f"Mode '{mode_id}' is not on the administrator's allow-list."
+        parts = [str(p).strip() for p in str(mode_id).split("+") if p.strip()]
+        if toggle["modes"] is not None:
+            blocked = [p for p in parts if p not in toggle["modes"]]
+            if blocked:
+                return False, (
+                    f"Mode '{blocked[0]}' is not on the administrator's allow-list"
+                    + (f" (composed as '{mode_id}')." if len(parts) > 1 else ".")
+                )
         return True, ""
 
     # ------------------------------------------------------------------
@@ -242,7 +489,7 @@ class CapabilityRegistry:
         max_seconds: int,
     ) -> ModeDefinition:
         """Validate a mission plan against the mode ceiling and admin toggle."""
-        mode = self.get_mode(mode_id)
+        mode = self.parse_mode(mode_id)
         enabled, reason = self.mode_enabled(db, mode_id)
         if not enabled:
             raise CapabilityError(reason)
@@ -274,7 +521,7 @@ class CapabilityRegistry:
     ) -> CapabilityDecision:
         """Decide whether `capability` may be used in `mode_id` right now."""
         try:
-            mode = self.get_mode(mode_id)
+            mode = self.parse_mode(mode_id)
         except CapabilityError as exc:
             return CapabilityDecision(False, mode_id, capability, str(exc))
         enabled, reason = self.mode_enabled(db, mode_id)
@@ -320,7 +567,7 @@ class CapabilityRegistry:
         return CapabilityDecision(True, mode_id, capability, "Permitted by mode policy.")
 
     def capabilities_for(self, mode_id: str) -> list[str]:
-        return sorted(self.get_mode(mode_id).capabilities)
+        return sorted(self.parse_mode(mode_id).capabilities)
 
     # ------------------------------------------------------------------
     # Static sections

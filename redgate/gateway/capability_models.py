@@ -12,7 +12,17 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 HostInput = Annotated[str, Field(min_length=1, max_length=253, pattern=r"^[A-Za-z0-9.:*\-]+$")]
-ModeId = Annotated[str, Field(min_length=3, max_length=48, pattern=r"^[a-z][a-z0-9_]{2,47}$")]
+#: A single mode ("pentest") or a composed spec ("pentest+ssl_tls_analysis").
+#: Composition is validated against ``compose``/``max_modes`` at request time, so a
+#: malformed combination is a 422 from the registry rather than from the schema.
+ModeId = Annotated[
+    str,
+    Field(
+        min_length=3,
+        max_length=160,
+        pattern=r"^[a-z][a-z0-9_]*(\+[a-z][a-z0-9_]*){0,5}$",
+    ),
+]
 
 ExpansionKind = Literal["targets", "budget", "quota", "privilege"]
 PrivilegeClass = Literal[
@@ -140,3 +150,20 @@ class ModeToggleRequest(StrictModel):
         max_length=8,
         description="Null means every manifest mode is permitted.",
     )
+
+
+class ComposeRequest(StrictModel):
+    """Ask the registry what a composition would resolve to, before declaring it."""
+
+    modes: list[ModeId] = Field(min_length=1, max_length=6)
+
+
+class ApproachRequest(StrictModel):
+    """Observations in, a deterministic next-step plan out (advisory only)."""
+
+    engagement_id: str = Field(min_length=3, max_length=64)
+    target: HostInput
+    mode_id: ModeId | None = None
+    mission_id: str | None = Field(default=None, max_length=64)
+    observations: dict[str, Any] = Field(default_factory=dict)
+    already_run: list[str] = Field(default_factory=list, max_length=64)

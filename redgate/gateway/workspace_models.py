@@ -66,10 +66,11 @@ class MissionCreateRequest(StrictModel):
     max_seconds: int = Field(default=300, ge=10, le=3600)
     mode_id: str | None = Field(
         default=None,
-        max_length=48,
-        pattern=r"^[a-z][a-z0-9_]{2,47}$",
+        max_length=160,
+        pattern=r"^[a-z][a-z0-9_]*(\+[a-z][a-z0-9_]*)*$",
         description=(
-            "Optional 2.2 operational mode. When set, the mission ceiling, mandatory "
+            "Optional operational mode. Accepts a single id (``pentest``) or a composed "
+            "spec (``pentest+ssl_tls_analysis``). When set, the mission ceiling, mandatory "
             "capabilities and TLS obligation come from config/capabilities.yaml. Omitted "
             "missions keep the legacy 2.1 bounds."
         ),

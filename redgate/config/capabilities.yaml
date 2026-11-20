@@ -1,5 +1,5 @@
 # =============================================================================
-# Redstrike 2.2 — Capability Manifest, Operational Modes & Expansion Policy
+# Redstrike 2.3 — Capability Manifest, Operational Modes, Composition & Expansion
 #
 # This file declares the WIDENED (but still governed) policy surface introduced
 # in 2.2. It can raise what an engagement MAY do; it cannot remove the code-level
@@ -9,7 +9,7 @@
 # the signed engagement scope and the live tool policy in SQLite.
 # =============================================================================
 
-manifest_version: "2.2"
+manifest_version: "2.3"
 
 # -----------------------------------------------------------------------------
 # Integrated capability layers. `status` describes what THIS repository can run
@@ -192,6 +192,31 @@ modes:
       max_hosts_added: 4
       requires_approver: true
 
+  - id: "ssl_tls_analysis"
+    label: "SSL/TLS Deep Analysis"
+    summary: "Protocol, cipher, certificate and HSTS analysis. Mandatory for any TLS target."
+    default_skill: "perimeter-recon-pipeline"
+    ceiling:
+      max_hosts: 8
+      max_actions: 64
+      max_seconds: 1800
+      concurrent_missions: 2
+    capabilities:
+      - "recon"
+      - "tls_deep_analysis"
+      - "external_tls_adapters"
+      - "http_header_audit"
+      - "finding_retest"
+      - "report_drafting"
+    mandatory_capabilities:
+      - "tls_deep_analysis"
+    expansion:
+      allowed_clauses: ["in_scope_subdomains"]
+      max_per_mission: 2
+      max_hosts_added: 4
+      requires_approver: true
+
+
 # -----------------------------------------------------------------------------
 # Deep SSL/TLS analysis (mandatory component for TLS-bearing engagements).
 # -----------------------------------------------------------------------------
@@ -264,6 +289,63 @@ expansion:
     max_tokens_increase: 200000
   # An expansion never bypasses this: it must be decided by a different person.
   require_distinct_approver: true
+
+
+# -----------------------------------------------------------------------------
+# Mode composition. The prompt calls its modes "combinable"; composing is a
+# deliberate act with a fixed precedence, not free-form union.
+#
+#   capabilities = base ∪ each add-on, minus `remove`
+#   mandatory    = base mandatory ∪ each add-on mandatory   (never removable)
+#   ceiling      = the NARROWEST of every participating mode
+#   expansion    = intersection (a clause must be declared by every mode)
+#
+# The result is still clamped to the model hard limits, still subject to the
+# admin toggle, and still subject to the engagement's posture and allowlist.
+# -----------------------------------------------------------------------------
+composition:
+  enabled: true
+  # A composed mode is a first-class mode, not an escape hatch. It widens the set
+  # of permitted capabilities and nothing else: every rule below is enforced in
+  # CapabilityRegistry.compose() and is why composing can never raise a ceiling.
+  max_modes: 3
+  rules:
+    capabilities: "base ∪ add − remove; mandatory capabilities are always re-added"
+    ceiling: "narrowest wins (min of max_hosts / max_actions / max_seconds / concurrent_missions)"
+    mandatory: "union of every part; an obligation cannot be composed away"
+    expansion_clauses: "intersection of every part; composition cannot manufacture a widening clause"
+    still_clamped_by: "model hard limits, admin mode toggle, posture, signed scope and allowlist"
+  allowed:
+    - id: "vuln_plus_tls"
+      label: "Vulnerability Discovery + SSL/TLS Deep Analysis"
+      base: "vulnerability_discovery"
+      add: ["ssl_tls_analysis"]
+      remove: []
+    - id: "bug_bounty_plus_tls"
+      label: "Bug Bounty + SSL/TLS Deep Analysis"
+      base: "bug_bounty"
+      add: ["ssl_tls_analysis"]
+      remove: []
+    - id: "pentest_plus_tls"
+      label: "Full Pentest + SSL/TLS Deep Analysis"
+      base: "pentest"
+      add: ["ssl_tls_analysis"]
+      remove: []
+    - id: "assessment_plus_tls"
+      label: "Security Assessment + SSL/TLS Deep Analysis"
+      base: "assessment"
+      add: ["ssl_tls_analysis"]
+      remove: []
+    - id: "pentest_plus_bounty_reporting"
+      label: "Full Pentest with bug-bounty reporting"
+      base: "pentest"
+      add: ["bug_bounty"]
+      remove: []
+    - id: "discovery_plus_assessment"
+      label: "Vulnerability Discovery with assessment review"
+      base: "vulnerability_discovery"
+      add: ["assessment"]
+      remove: []
 
 # -----------------------------------------------------------------------------
 # Evidence gate: seven questions every confirmed finding must answer.
