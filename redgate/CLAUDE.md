@@ -1,11 +1,11 @@
-# CLAUDE.md — Redstrike v2.2 Project Instructions for Claude Code
+# CLAUDE.md — Redstrike v2.3 Project Instructions for Claude Code
 
-This repository implements **Redstrike v2.2**, an internal, policy-controlled, auditable security testing and personalized reconnaissance platform powered by local LLMs (Ollama / LM Studio / Hugging Face GGUF), composable **Skills**, persistent operator **Memory**, **MCP tools**, 4-language static validation (**Python, Bash, Go, JavaScript**), an isolated **Go Sandbox Runner**, and the 2.2 **capability layer** (operational modes, mandatory deep TLS analysis, RoE-bound expansion requests, the seven-question evidence gate, advisory agent roles and read-only ELF triage). See `docs/CAPABILITY_MODES.md`.
+This repository implements **Redstrike v2.3**, an internal, policy-controlled, auditable security testing and personalized reconnaissance platform powered by local LLMs (Ollama / LM Studio / Hugging Face GGUF), composable **Skills**, persistent operator **Memory**, **MCP tools**, 4-language static validation (**Python, Bash, Go, JavaScript**), an isolated **Go Sandbox Runner**, the 2.2 **capability layer** (operational modes, mandatory deep TLS analysis, RoE-bound expansion requests, the seven-question evidence gate, advisory agent roles and read-only ELF triage), and the 2.3 **offensive surface** (posture/consent policy, a 144-tool catalogue, a PoC lifecycle, attack chains, recursive discovery, a bug-bounty workflow, a pwntools layer and 49 advisory agents with hunt loops and an append-only brain). See `docs/CAPABILITY_MODES.md` and `docs/OFFENSIVE_SURFACE.md`.
 
 ## Non-Negotiable Safety & Architecture Rules
 
 1. **Scope First**: Never add code or tools that contact targets outside `allowlist` or bypass `gateway/policy.py` (engagement RoE window + DNS rebinding + cloud metadata block).
-2. **No Exploit or Evasion Logic**: Only build read-only reconnaissance, configuration verification, triage, prioritization, and reporting capabilities. High-risk tools remain disabled by default and bound by Two-Person approval (`approval_queue`).
+2. **Offensive capability lives behind policy, not behind a missing feature.** Ordinary active testing (nmap, nuclei, fuzzing, content discovery, TLS audits) is allowed on an operator's posture acknowledgement inside the signed scope. Evasion/persistence/credential-harvesting logic is still not built. High-impact actions — state-changing PoCs, credential handling, mass scanning beyond budget, online auth attempts — require two people (`approval_queue`). See rules 13–20.
 3. **Zero Hardcoded Secrets/Targets**: Externalize all settings in `config/*.yaml` and `skills/*.yaml`; load secrets strictly via environment variables or `secrets/llm_api_key`.
 4. **Untrusted AI Code**: Every generated script must pass `gateway/validators/` AND SHA-256 verification in `sandbox_runner/runner.go` inside `/tmp/sandbox`.
 5. **Immutable Audit Trail**: Every new tool, skill run, policy toggle, or analyst verdict must write to `db.write_audit_log(...)` (protected by SQLite abort triggers + SHA-256 hash chain).
@@ -17,7 +17,7 @@ This repository implements **Redstrike v2.2**, an internal, policy-controlled, a
 8. **No config may defeat code-level safety.** `PERMANENTLY_BANNED_*` flag sets, `UNCONDITIONALLY_BLOCKED_NETS`, DNS pinning and the SQL Two-Person `CHECK` are untouchable. If new policy needs one of them relaxed, that is a security review, not a config change.
 9. **Confirmation requires evidence.** Only `gateway/evidence_gate.py` may mark a finding `confirmed`. Model output is never sufficient input for a blocking question. New findings must supply `evidence`, `remediation` and a deterministic provenance.
 10. **TLS analysis must stay pinned.** Any new TLS code must dial a scope-validated IP, keep the original SNI, honour the `tls_audit.allowed_ports` profile and the `tls_inspect` tool policy, and store an immutable hashed record. No private HTTP client for HSTS.
-11. **No exploit generation.** `gateway/binary_triage.py` stays read-only: no `pwntools`, no ROP/shellcode/payload builders, no debugger or remote process interaction. Artifact reads stay inside `REDGATE_ARTIFACT_DIR`.
+11. **The binary layer is governed, not forbidden.** `gateway/binary_triage.py` stays read-only (in-tree ELF parsing, no execution). `gateway/pwntools_layer.py` may assemble, disassemble, search ROP gadgets and run a pinned script **only** inside its child process, with a scrubbed env, no network, a temporary cwd, the artifact root enforced, and a destructive-script refusal. It must never import `pwn` in the Gateway process. If pwntools is absent, report `status: unavailable` — never synthesise its output.
 12. **Agent roles are text.** Anything in `gateway/agents_registry.py` must keep `can_execute`/`can_approve`/`can_widen_scope` false and must never be wired to a tool call.
 
 ## Key Extension Points (Tool & Skill Authoring)
@@ -51,3 +51,47 @@ throwaway loopback TLS server with a locally minted certificate and needs only t
   question weakens `candidate`/`rejected` semantics.
 - **Add an agent role**: extend `AGENT_ROLES`, declare its capabilities and a concrete
   refutation condition. It must remain advisory.
+
+### 2.3 Offensive-Surface Rules
+
+13. **Posture is not permission.** `posture:permissive_in_scope` is the default and it
+    removes repeated asking — it must never add an allowlist entry, extend the RoE
+    window, disable DNS pinning or unblock metadata. Any new posture must be evaluated
+    through `gateway/offensive_policy.py`, never branched on in a handler.
+14. **Two people, four actions.** `exploitation:proof_of_concept`,
+    `credential:post_exploitation`, `mass_scan:expanded_budget` and `tool:hydra` are the
+    two-person set (`HIGH_IMPACT_POLICIES` plus the hydra row). Do not add a fifth
+    without a documented reason, and do not make anything else two-person "for safety" —
+    that is how the permissive default gets quietly destroyed.
+15. **argv is built, never assembled.** Every external tool call goes through
+    `mcp_server.catalog.build_argv`. It is deny-by-default: a flag is accepted only if
+    the policy row allows it, and `BASELINE_REFUSED_FLAGS` always wins. Never pass an
+    operator-supplied string into a flag or shell position.
+16. **Consent is hashed, not clicked.** A consent record stores the SHA-256 of the exact
+    declaration. Editing a declaration must invalidate old consent; a consent for one
+    policy must not silently satisfy a stricter one.
+17. **Nothing is "Confirmed" without reproduction.** Only `gateway/exploitation.py` may
+    move a finding to `verified`, and only when a *different* operator reproduces the
+    exact recorded output. A mismatch demotes to `unverified` and is kept.
+18. **Destructive PoCs are refused.** `scan_for_destructive` runs on every PoC body and
+    script. A finding needs the smallest demonstrative proof; widening the blast radius
+    is not "more evidence".
+19. **The brain is append-only.** `brain_entries` rejects `UPDATE` and `DELETE` by
+    trigger. Supersede with a new entry; a killed loop keeps its reason.
+20. **Degrade honestly.** A missing binary is `status: unavailable` with the validated
+    argv; missing pwntools is `unavailable` with the import error; missing bounty
+    credentials mean `source: manual` and a duplicate check of `unverified`. Never
+    fabricate a tool result, a sync timestamp or a `no_match`.
+
+### 2.3 Extension points
+
+- **Add a catalogued tool**: append a `_e(...)` row in `mcp_server/catalog.py`, add its
+  flag policy to `config/policies.yaml` with `allowed_flags`/`refused_flags`, and add a
+  positive + a refusal test in `tests/test_offensive_surface.py`. If it needs a flag
+  refused in every posture, add it to `BASELINE_REFUSED_FLAGS` deliberately.
+- **Add a posture**: declare it under `postures:` in `config/policies.yaml` with a
+  `consent_required` level and a declaration the operator can read. Postures narrow;
+  they never widen.
+- **Add a hunt-loop question**: append to `SEVEN_QUESTIONS`. More than seven needs a
+  justification, and every question must be answerable from stored evidence — a
+  question nobody can answer just blocks everything.

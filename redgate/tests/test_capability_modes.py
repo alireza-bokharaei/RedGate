@@ -1118,14 +1118,31 @@ async def test_capabilities_endpoint_is_honest_about_restrictions(ws):
     assert all(layer["provenance"] for layer in body["layers"])
 
 
-async def test_no_capability_can_reenable_permanently_banned_tool_flags(ws, registry):
-    """A widened mode must never remove the code-level argv invariants."""
+async def test_no_capability_can_reenable_refused_tool_flags(ws, registry):
+    """Widening a mode moves the flag surface through policy, never past the floor.
+
+    2.3 semantics: ``-T4`` is a *noise* choice governed by the
+    ``tool:nmap_aggressive`` policy row (refused by default, allowed with operator
+    consent), while capability flags (``--os-shell`` and NSE scripting) stay
+    refused no matter which mode or policy is active.
+    """
     from mcp_server.tools import PERMANENTLY_BANNED_NMAP_FLAGS, ToolParamValidationError, validate_tool_params
 
+    # Default policy: -T4 is not in the allowed set, so it is refused.
     policy = ws.db.get_tool_policy("nmap")["allowed_params"]
-    with pytest.raises(ToolParamValidationError, match="prohibited"):
+    with pytest.raises(ToolParamValidationError, match="allowed_flags"):
         validate_tool_params("nmap", {"flags": ["-T4"], "ports": "80"}, policy)
-    assert "-T4" in PERMANENTLY_BANNED_NMAP_FLAGS
+    assert "-T4" not in PERMANENTLY_BANNED_NMAP_FLAGS
+
+    # An engagement that consented to aggressive timing can use it...
+    aggressive = {"allowed_flags": ["-sV", "-T4"]}
+    assert validate_tool_params("nmap", {"flags": ["-T4"], "ports": "80"}, aggressive)["flags"] == ["-T4"]
+
+    # ...but NSE scripting is refused even when the same policy lists it.
+    with pytest.raises(ToolParamValidationError, match="refused by policy"):
+        validate_tool_params("nmap", {"flags": ["--script"], "ports": "80"},
+                             {"allowed_flags": ["--script"]})
+    assert "--script" in PERMANENTLY_BANNED_NMAP_FLAGS
 
     # Even a fully enabled mode cannot produce a capability for a banned argv.
     for mode_id in registry.mode_ids():

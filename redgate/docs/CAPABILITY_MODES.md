@@ -232,21 +232,23 @@ redistributed here.
 
 ---
 
-## 10. What 2.2 still refuses
+## 10. What 2.2 still refuses — and how 2.3 changed it
 
-These are policy decisions, not unfinished work:
+> **Superseded in part by 2.3.** This section records the 2.2 boundary as it was
+> shipped. 2.3 deliberately widens several of these items under the control model
+> in [OFFENSIVE_SURFACE.md](OFFENSIVE_SURFACE.md). What changed and what did not:
 
-- **No credential dumping, password attacks or hash cracking** as autonomous
-  capabilities. `hydra` and `john` remain disabled-by-default, approval-gated
-  rows in `config/tool_policy.yaml` with empty flag allow-lists.
-- **No destructive exploitation.** The `destructive_confirmation` privilege
-  class records an authorisation reference; it does not create a destructive tool.
-- **No unbounded or mass scanning.** Port probes stay capped, `nmap` keeps `-T1`
-  / `-T2`, and the action budget is enforced server-side.
-- **No exploit generation.** Even in `ctf` mode the binary layer only reports
-  hardening facts.
-- **No model-authorised confirmation.** A model cannot pass the gate, approve a
-  request, raise a budget or widen scope.
+| 2.2 refusal | 2.3 status |
+|---|---|
+| No password attacks or hash cracking | **Changed.** `hydra`, `john` and 6 more are catalogued; `hydra` is two-person, `john` needs operator consent. |
+| No destructive exploitation | **Held.** Destructive PoCs are refused by pattern in every posture; `--os-shell` and file-write flags stay refused. |
+| No unbounded or mass scanning | **Changed, with a budget.** Mass scanning is possible only under a two-person, expiring `scan_authorizations` row that depletes. |
+| No exploit generation (binary layer reported facts only) | **Changed under control.** `pwntools` may assemble/disassemble/ROP-search/run a pinned script in an isolated child; no payload is built against a host. Reported `unavailable` when pwntools is absent. |
+| No model-authorised confirmation | **Held.** A model cannot pass the gate, approve a request, raise a budget or widen scope; `verified` requires a human reproduction. |
+
+What 2.2 stated and 2.3 keeps unchanged: the `destructive_confirmation`
+privilege class still only records an authorisation reference, and a model still
+cannot authorise anything.
 
 ---
 

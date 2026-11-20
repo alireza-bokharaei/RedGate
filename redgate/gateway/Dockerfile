@@ -20,7 +20,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 # Python/Bash validation, missions, MCP checks, graphs, Go HTTP evidence and
 # retests work here. Go/JS script validation fails closed when tools are absent.
 FROM python:3.12-slim-bookworm AS lite
-ARG REDGATE_VERSION=2.2.0
+ARG REDGATE_VERSION=2.3.0
 LABEL org.opencontainers.image.title="Redstrike Gateway" \
       org.opencontainers.image.version="${REDGATE_VERSION}"
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 \

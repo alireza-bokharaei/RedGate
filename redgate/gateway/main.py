@@ -27,14 +27,22 @@ from gateway import __version__
 from gateway.agent import PersonalizedReconAgent
 from gateway.auth import AuthManager, OperatorPrincipal
 from gateway.capabilities import CapabilityRegistry
+from gateway.bugbounty import BugBountyService
 from gateway.capability_api import capability_router
 from gateway.evidence_gate import EvidenceGate
+from gateway.exploitation import ExploitationService
+from gateway.exploration import ExplorationService
+from gateway.hunt_loop import HuntLoopService
 from gateway.config_loader import PlatformConfig, load_platform_config, seed_database_from_config
 from gateway.db import Database, utc_now_iso
 from gateway.llm_proxy import LLMProxyError, LLMProxyGateway
 from gateway.mcp_client import MCPBridgeClient, MCPClientError
 from gateway.memory import AgentMemoryEngine
 from gateway.missions import MissionService
+from gateway.offensive_api import offensive_router
+from gateway.offensive_policy import OffensivePolicyEngine
+from gateway.pwntools_layer import PwntoolsLayer
+from gateway.scan_runner import ScanRunner
 from gateway.model_hub import (
     LocalModelHub,
     validate_llm_endpoint_url,
@@ -92,6 +100,15 @@ class GatewayRuntime:
     evidence_gate: EvidenceGate
     tls_audit: TLSAuditService
     artifact_root: Path
+    # ---- 2.3 offensive surface -------------------------------------------
+    policies: OffensivePolicyEngine
+    exploitation: ExploitationService
+    exploration: ExplorationService
+    bounty: BugBountyService
+    pwntools: PwntoolsLayer
+    loops: HuntLoopService
+    runner: ScanRunner
+    store: WorkspaceStore
 
 
 def build_runtime() -> GatewayRuntime:
@@ -150,6 +167,15 @@ def build_runtime() -> GatewayRuntime:
         evidence_gate=evidence_gate,
     )
 
+    # ---- 2.3: the offensive surface -------------------------------------
+    # The policy engine seeds itself from config/policies.yaml on first use, so a
+    # fresh database is immediately consistent with the declarative manifest.
+    workspace_store = WorkspaceStore(db)
+    policies = OffensivePolicyEngine(
+        db, OffensivePolicyEngine.load_manifest(config_dir / "policies.yaml")
+    )
+    policies.seed()
+
     return GatewayRuntime(
         config=cfg,
         db=db,
@@ -168,6 +194,20 @@ def build_runtime() -> GatewayRuntime:
         evidence_gate=evidence_gate,
         tls_audit=tls_audit,
         artifact_root=artifact_root,
+        policies=policies,
+        exploitation=ExploitationService(
+            db=db, scope=scope, store=workspace_store, policies=policies
+        ),
+        exploration=ExplorationService(
+            db=db, scope=scope, store=workspace_store, policies=policies
+        ),
+        bounty=BugBountyService(db=db, scope=scope),
+        pwntools=PwntoolsLayer(
+            db=db, scope=scope, policies=policies, artifact_root=str(artifact_root)
+        ),
+        loops=HuntLoopService(db=db),
+        runner=ScanRunner(db=db, scope=scope, policies=policies, mcp=mcp),
+        store=workspace_store,
     )
 
 
@@ -471,6 +511,19 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
                 "evidence_gate": True,
                 "agent_roles": True,
                 "binary_triage": True,
+                # ---- 2.3 offensive surface ----
+                "offensive_policies": True,
+                "offensive_tools": True,
+                "tool_catalog_size": len(rt.runner.installed_tools()),
+                "exploitation_lifecycle": True,
+                "attack_chains": True,
+                "bug_bounty": True,
+                "pwntools_layer": rt.pwntools.availability()["available"],
+                "recursive_discovery": True,
+                "mass_scan_budgets": True,
+                "hunt_loops": True,
+                "agent_brain": True,
+                "agent_roles_count": len(rt.loops.roster()["roles"]),
             },
             "gateway_port": int(os.environ.get("REDGATE_GATEWAY_PORT", "8000")),
             "mcp_server": mcp_health,
@@ -1724,6 +1777,22 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
             get_principal=get_principal,
             ensure_access=ensure_engagement_access,
             artifact_root=str(rt.artifact_root),
+        )
+    )
+    application.include_router(
+        offensive_router(
+            db=rt.db,
+            policies=rt.policies,
+            exploitation=rt.exploitation,
+            exploration=rt.exploration,
+            bounty=rt.bounty,
+            pwntools=rt.pwntools,
+            loops=rt.loops,
+            runner=rt.runner,
+            registry=rt.registry,
+            store=rt.store,
+            get_principal=get_principal,
+            ensure_access=ensure_engagement_access,
         )
     )
     application.state.expansion = expansion_service

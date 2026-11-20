@@ -70,6 +70,35 @@ def _utcnow() -> dt.datetime:
     return dt.datetime.now(dt.timezone.utc)
 
 
+def read_expansion_clauses(engagement_id: str, config_dir: str | None = None) -> list[str]:
+    """Return the ``expansion_clauses`` declared for an engagement.
+
+    Module-level so other subsystems (exploration, reporting) can ask the same
+    question without constructing a service or reaching into ``config/``
+    themselves.
+    """
+    import os
+    from pathlib import Path
+
+    import yaml
+
+    base = Path(
+        config_dir
+        or os.environ.get(
+            "REDGATE_CONFIG_DIR", str(Path(__file__).resolve().parent.parent / "config")
+        )
+    )
+    path = base / "allowlist.yaml"
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, ValueError):
+        return []
+    for eng in data.get("engagements", []) or []:
+        if str(eng.get("id")) == engagement_id:
+            return [str(c) for c in eng.get("expansion_clauses", []) or []]
+    return []
+
+
 class ExpansionService:
     """Queue, decide and apply mid-engagement expansion requests."""
 
@@ -95,26 +124,7 @@ class ExpansionService:
     # ------------------------------------------------------------------
     def engagement_clauses(self, engagement_id: str) -> list[str]:
         """Read the optional ``expansion_clauses`` from the engagement config."""
-        import yaml
-
-        clauses: list[str] = []
-        for path in self._config_candidates():
-            try:
-                data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-            except Exception:  # noqa: BLE001 - malformed config is reported by the API
-                continue
-            for eng in data.get("engagements", []) or []:
-                if str(eng.get("id")) == engagement_id:
-                    clauses = [str(c) for c in eng.get("expansion_clauses", []) or []]
-        return clauses
-
-    @staticmethod
-    def _config_candidates() -> list[Any]:
-        import os
-        from pathlib import Path
-
-        base = Path(os.environ.get("REDGATE_CONFIG_DIR", str(Path(__file__).resolve().parent.parent / "config")))
-        return [base / "allowlist.yaml"]
+        return read_expansion_clauses(engagement_id)
 
     def _mode_ceiling_actions(self, mission: dict[str, Any]) -> int:
         mode_id = mission.get("mode_id")

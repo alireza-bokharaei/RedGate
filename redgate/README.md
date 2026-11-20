@@ -1,4 +1,4 @@
-# Redstrike 2.2.0 — راهنمای فنی / Technical Guide
+# Redstrike 2.3.0 — راهنمای فنی / Technical Guide
 
 [معرفی پروژه / Project overview](../README.md) · [فارسی](#fa) · [English](#en)
 
@@ -117,6 +117,32 @@ bootstrap فایل `.env` خصوصی می‌سازد؛ آن را وارد Git ن
 | `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | کاتالوگ و برنامهٔ مشورتی نقش‌ها |
 | `POST /api/v1/binary/triage` | بررسی فقط‌خواندنی سخت‌سازی ELF (approver/admin) |
 
+### سطح تهاجمی ۲٫۳
+
+مدل کنترل، همان جملهٔ پرامپت است: **وضعیت پیش‌فرض درون محدودهٔ اعلام‌شده اجازه‌دهنده است؛ تأیید دو‌نفره فقط برای اقدام‌های پرتأثیر.**
+
+| وضعیت (posture) | پیش‌فرض | ریسک | رضایت لازم | دو‌نفره |
+|---|---|---|---|---|
+| `posture:permissive_in_scope` | **بله** | medium | operator | خیر |
+| `posture:strict_readonly` | انتخابی (تنگ‌تر) | low | operator | برای هر اقدام غیر‌فقط‌خواندنی |
+| `posture:ctf_aggressive` | انتخابی | high | operator | خیر |
+
+فقط چهار مورد دو‌نفره‌اند: `exploitation:proof_of_concept`، `credential:post_exploitation`، `mass_scan:expanded_budget` و `tool:hydra`. وضعیت هرگز محدوده را گسترش نمی‌دهد: allowlist، پنجرهٔ RoE، pinning روی DNS و مسدودسازی متادیتای ابری در همهٔ وضعیت‌ها اعمال می‌شوند — حتی `ctf_aggressive`.
+
+| مسیر | کاربرد |
+|---|---|
+| `GET /api/v1/offensive/brief` | پروتکل آغاز جلسه: مأموریت، محدوده، RoE و بودجهٔ باقی‌مانده، وضعیت TLS، لایه‌ها و محدودیت‌ها |
+| `GET/POST /api/v1/offensive/policy` · `/posture` · `/consent` | مشاهده و تنظیم وضعیت و ثبت رضایت هش‌شده |
+| `POST /api/v1/offensive/decide` | «اجازه دارم این را اجرا کنم؟» بدون اجرا |
+| `GET /api/v1/offensive/tools` · `POST /tools/run` | ۱۴۴ ابزار کاتالوگ + زیرمجموعهٔ واقعاً نصب‌شده |
+| `POST /api/v1/offensive/findings` … `/{id}/verify` | چرخهٔ PoC با تأیید مستقل |
+| `POST /api/v1/offensive/chains` | زنجیرهٔ حمله فقط از یافته‌های تأییدشده |
+| `POST /api/v1/offensive/explore/discover` … `/mass-scan` | کشف بازگشتی و بودجهٔ اسکن انبوه |
+| `POST /api/v1/offensive/bounty/…` | دامنهٔ برنامه، بررسی تکراری، پیش‌نویس گزارش |
+| `GET /api/v1/offensive/agents` · `POST /loops` · `GET /brain` | ۴۹ نقش مشورتی، حلقهٔ شکار با دروازهٔ هفت‌پرسشی، حافظهٔ فقط‌افزودنی |
+
+سه نکتهٔ صداقت که باید بدانید: کاتالوگ ۱۴۴ ابزار دارد ولی روی تصویر مرجع فقط چهار باینری نصب است و اجرای بقیه `status: unavailable` با argv معتبر برمی‌گرداند؛ `pwntools` نصب نیست و لایهٔ آن صریحاً `unavailable` گزارش می‌دهد (بدون جعل خروجی)؛ و همگام‌سازی Bug Bounty بدون اعتبارنامهٔ پلتفرم انجام نمی‌شود، پس دامنهٔ دستی‌وارد‌شده همیشه `source: manual` است و بررسی تکراری محلی در بهترین حالت `unverified` می‌ماند. جزئیات کامل در [docs/OFFENSIVE_SURFACE.md](docs/OFFENSIVE_SURFACE.md) و تأیید زنده در [docs/VERIFICATION_2.3.md](docs/VERIFICATION_2.3.md).
+
 ### بودجه، شواهد و بازآزمایی
 
 - ورودی مأموریت: `targets` با ۱ تا ۸ میزبان، `max_actions` از ۱ تا ۶۴ با پیش‌فرض ۲۴، و `max_seconds` از ۱۰ تا ۱۸۰۰ با پیش‌فرض ۳۰۰.
@@ -215,6 +241,7 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `config/operators.yaml` | Identity, role, quota, token-hash environment names and engagement access |
 | `config/tool_policy.yaml` | Tool availability, limits and risk levels |
 | `config/capabilities.yaml` | 2.2 operational modes, ceilings, TLS profile, expansion limits and evidence-gate questions |
+| `config/policies.yaml` | 2.3 control model: three postures, the four two-person policies, and the per-tool flag surface |
 | `config/script_policy.yaml` | Script validation/execution policy |
 | `config/llm_proxy.yaml` | Initial model-proxy settings |
 | `config/local_models.yaml` | Model catalog and quantization metadata |
@@ -275,6 +302,44 @@ Interactive schemas are available at **`/docs`**. Workspace routes below require
 | `POST /api/v1/gate/evaluate` | Evaluate findings against the seven-question gate |
 | `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | Advisory role catalogue and plan |
 | `POST /api/v1/binary/triage` | Read-only ELF hardening triage (approver/admin) |
+
+### 2.3 offensive surface
+
+The control model is the prompt's sentence, implemented literally: **the default
+posture is permissive within the declared scope; two-person approval applies only
+to high-impact actions.**
+
+| Posture | Default | Risk | Consent | Two-person |
+|---|---|---|---|---|
+| `posture:permissive_in_scope` | **yes** | medium | operator | no |
+| `posture:strict_readonly` | opt-in narrowing | low | operator | anything not read-only |
+| `posture:ctf_aggressive` | opt-in | high | operator | no |
+
+Only four actions need two people: `exploitation:proof_of_concept`,
+`credential:post_exploitation`, `mass_scan:expanded_budget` and `tool:hydra`. A
+posture never widens reach: the allowlist, RoE window, DNS pinning and
+cloud-metadata denial hold in every posture, including `ctf_aggressive`.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/offensive/brief` | Session Start Protocol: mission, scope, RoE + remaining budget, TLS status, layers, restrictions |
+| `GET/POST /api/v1/offensive/policy` · `/posture` · `/consent` | Inspect posture, set it (approver only), record hashed consent |
+| `POST /api/v1/offensive/decide` | "May I run this?" without running it |
+| `GET /api/v1/offensive/tools` · `POST /tools/run` | The 144-tool catalogue and the honestly-installed subset |
+| `POST /api/v1/offensive/findings` … `/{id}/verify` | PoC lifecycle with independent reproduction |
+| `POST /api/v1/offensive/chains` | Attack chains from verified findings only |
+| `POST /api/v1/offensive/explore/discover` … `/mass-scan` | Recursive discovery and budgeted mass scanning |
+| `POST /api/v1/offensive/bounty/…` | Program scope, duplicate checks, report drafts |
+| `GET /api/v1/agents` · `POST /loops` · `GET /brain` | 49 advisory roles, 7-Question-Gate hunt loops, append-only brain |
+
+Three honesty notes: the catalogue has 144 entries but only four binaries are
+installed on the reference image, and a missing binary returns
+`status: unavailable` with the validated argv rather than invented output;
+`pwntools` is not installed, so that layer reports `unavailable` explicitly;
+and bug-bounty sync needs platform credentials, so a hand-entered scope stays
+`source: manual` and a local duplicate check stays `unverified`. Full detail in
+[docs/OFFENSIVE_SURFACE.md](docs/OFFENSIVE_SURFACE.md); live evidence in
+[docs/VERIFICATION_2.3.md](docs/VERIFICATION_2.3.md).
 
 ### Budgets, evidence and retests
 

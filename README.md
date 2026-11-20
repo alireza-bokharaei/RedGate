@@ -4,7 +4,7 @@
 
 **Authorized security assessment with policy controls and an auditable workflow**
 
-نسخه / Version **2.2.0** · **Python · Bash · Go · JavaScript · Docker**
+نسخه / Version **2.3.0** · **Python · Bash · Go · JavaScript · Docker**
 
 [فارسی](#fa) · [English](#en) · [راهنمای فنی / Technical guide](redgate/README.md)
 
@@ -220,6 +220,35 @@ A language model does not replace asset-owner authorization or an analyst's judg
 - **Script execution controls:** Python, Bash, Go and JavaScript validation, SHA-256 checks and bounded process execution, alongside tool policies, quotas, roles and a two-person approval path where required.
 - **Reporting and operations:** Markdown/JSON exports, hash-chained audit records, WAL-consistent SQLite backups, key rotation and Bash service-management helpers.
 - **Operational modes and governed expansion (2.2):** mission mode declaration, mandatory deep TLS analysis, RoE-clause-bound expansion requests for scope/budget/quota with independent approval, the seven-question evidence gate, an advisory agent-role catalogue and ELF hardening triage.
+- **Governed offensive surface (2.3):** 144 catalogued tools behind a declarative per-tool flag policy, a permissive-in-scope posture with two-person approval reserved for high-impact actions, a PoC lifecycle with independent reproduction, attack chains, recursive discovery with budgeted mass scanning, a bug-bounty workflow, a pwntools layer and 49 advisory agents with hunt loops and an append-only reasoning brain.
+
+### New in 2.3: a wide offensive surface, one control model
+
+Version 2.3 makes the platform *capable* of real offensive work — 144 tools across
+DNS, network, web, injection, TLS, cloud, Active Directory, password, OSINT,
+binary, exploit-search and reporting — while keeping the boundary where 2.1 put
+it: a signed scope, an allowlist, DNS pinning, cloud-metadata denial and an
+append-only audit ledger.
+
+The control model is deliberately asymmetric:
+
+| Action | Approval |
+|---|---|
+| Read-only checks (headers, DNS, TLS, TCP probe) | none |
+| Ordinary active testing (nmap, nuclei, ffuf, gobuster, content discovery) | operator acknowledgement of the posture |
+| High-impact: state-changing PoC, credential handling, mass scanning beyond budget, online auth attempts | **two people** |
+
+A posture decides how much *asking* happens, never *what is reachable*:
+`posture:ctf_aggressive` still refuses an out-of-scope target and still refuses
+`sqlmap --os-shell`. Timing (`-T4`) is a policy row a mission can opt into;
+capability flags that turn a finding into a compromise stay refused always.
+
+Three parts are deliberately honest about this sandbox: the catalogue lists 144
+tools but only four binaries are installed here, `pwntools` is not installed
+(−> `status: unavailable`, never invented output), and bug-bounty sync has no
+credentials (−> scope stays `source: manual`, duplicate checks stay `unverified`).
+Full detail: [redgate/docs/OFFENSIVE_SURFACE.md](redgate/docs/OFFENSIVE_SURFACE.md)
+and [redgate/docs/VERIFICATION_2.3.md](redgate/docs/VERIFICATION_2.3.md).
 
 ### New in 2.2: operational modes and a widened — still governed — boundary
 
@@ -355,6 +384,8 @@ The local launcher defaults to loopback, `mock` AI and temporary private credent
 - [Deployment, backups, upgrades and restoration](redgate/docs/DEPLOYMENT.md)
 - [Verification record and reproducible browser test](redgate/docs/VERIFICATION_2.1.0.md)
 - [2.2 operational modes and governed expansion](redgate/docs/CAPABILITY_MODES.md)
+- [2.3 offensive surface: control model, tools, lifecycle, agents](redgate/docs/OFFENSIVE_SURFACE.md)
+- [2.3 live verification record](redgate/docs/VERIFICATION_2.3.md)
 - [Security](redgate/SECURITY.md) · [Limitations](redgate/LIMITATIONS.md) · [CI workflow](.github/workflows/verify.yml)
 
 Redstrike is distributed under the **MIT License**, with an authorized-use notice in [LICENSE](redgate/LICENSE). Dependencies, tools and models retain their respective licenses. Never commit credentials, engagement data or runtime artifacts to Git.

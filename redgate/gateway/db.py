@@ -1519,3 +1519,60 @@ class Database:
                 if conn.in_transaction:
                     conn.execute("ROLLBACK;")
                 raise
+
+    # ------------------------------------------------------------------
+    # 2.3 offensive surface — delegated to OffensiveStore
+    # ------------------------------------------------------------------
+    @property
+    def offensive(self):
+        """Lazy accessor for the 2.3 offensive-surface store.
+
+        Kept lazy so importing ``gateway.db`` stays free of a cycle with
+        ``gateway.offensive_store``.
+        """
+        from gateway.offensive_store import OffensiveStore
+
+        store = getattr(self, "_offensive_store", None)
+        if store is None:
+            store = OffensiveStore(self)
+            self._offensive_store = store
+        return store
+
+    def upsert_policy(self, **kwargs):
+        return self.offensive.upsert_policy(**kwargs)
+
+    def get_policy(self, policy_id: str):
+        return self.offensive.get_policy(policy_id)
+
+    def list_policies(self, policy_type: str | None = None):
+        return self.offensive.list_policies(policy_type)
+
+    def set_engagement_posture(self, engagement_id: str, posture_id: str, actor: str) -> None:
+        return self.offensive.set_engagement_posture(engagement_id, posture_id, actor)
+
+    def get_engagement_posture(self, engagement_id: str):
+        return self.offensive.get_engagement_posture(engagement_id)
+
+    def save_consent(self, **kwargs):
+        return self.offensive.save_consent(**kwargs)
+
+    def get_consent(self, consent_id: str):
+        return self.offensive.get_consent(consent_id)
+
+    def list_consents(self, **kwargs):
+        return self.offensive.list_consents(**kwargs)
+
+    def revoke_consent(self, consent_id: str):
+        return self.offensive.revoke_consent(consent_id)
+
+    def save_scan_authorization(self, **kwargs):
+        return self.offensive.save_scan_authorization(**kwargs)
+
+    def get_scan_authorization(self, authorization_id: str):
+        return self.offensive.get_scan_authorization(authorization_id)
+
+    def live_scan_authorization(self, engagement_id: str):
+        return self.offensive.live_scan_authorization(engagement_id)
+
+    def consume_scan_budget(self, authorization_id: str, requests: int):
+        return self.offensive.consume_scan_budget(authorization_id, requests)
