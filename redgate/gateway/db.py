@@ -1467,3 +1467,55 @@ class Database:
         item["dual_verified"] = bool(item["dual_verified"])
         item["requires_human_judgment"] = bool(item["requires_human_judgment"])
         return item
+
+    # ------------------------------------------------------------------
+    # 2.2 Capability surface: quota elevation support
+    # ------------------------------------------------------------------
+
+    def raise_quota(
+        self, *, operator_id: str, calls_delta: int = 0, tokens_delta: int = 0
+    ) -> dict[str, Any]:
+        """Raise the CURRENT period's quota ceilings for an operator.
+
+        Called only from an approved expansion request. Historical periods keep
+        their original ceilings so the audit trail shows when a limit moved.
+        """
+        calls_delta, tokens_delta = max(0, int(calls_delta)), max(0, int(tokens_delta))
+        if not calls_delta and not tokens_delta:
+            raise ValueError("A quota elevation must raise calls and/or tokens.")
+        with self._write_lock, self.connection() as conn:
+            conn.execute("BEGIN IMMEDIATE;")
+            try:
+                rows = conn.execute(
+                    "SELECT * FROM quota WHERE operator_id = ? AND "
+                    "period_key = (SELECT MAX(period_key) FROM quota WHERE operator_id = ?) "
+                    "ORDER BY id DESC LIMIT 1",
+                    (operator_id, operator_id),
+                ).fetchone()
+                if not rows:
+                    conn.execute("COMMIT;")
+                    raise ValueError(f"No quota row exists yet for operator '{operator_id}'.")
+                before = dict(rows)
+                conn.execute(
+                    "UPDATE quota SET max_calls = max_calls + ?, max_tokens = max_tokens + ?, "
+                    "updated_at = ? WHERE id = ?",
+                    (calls_delta, tokens_delta, utc_now_iso(), before["id"]),
+                )
+                after = conn.execute(
+                    "SELECT * FROM quota WHERE id = ?", (before["id"],)
+                ).fetchone()
+                conn.execute("COMMIT;")
+                return {
+                    "quota_before": {
+                        "max_calls": before["max_calls"],
+                        "max_tokens": before["max_tokens"],
+                    },
+                    "quota_after": {
+                        "max_calls": after["max_calls"],
+                        "max_tokens": after["max_tokens"],
+                    },
+                }
+            except Exception:
+                if conn.in_transaction:
+                    conn.execute("ROLLBACK;")
+                raise

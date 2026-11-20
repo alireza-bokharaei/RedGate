@@ -1,8 +1,20 @@
-# Limitations and Operational Boundaries — 2.1.0
+# Limitations and Operational Boundaries — 2.2.0
 
 ## Scope of this release
 
-This is an independent addition of mission/graph/evidence/retest workflows to Redstrike, not a full ARTEX source merge, feature clone or compatibility layer. See [ARTEX_SCOPE.md](docs/ARTEX_SCOPE.md). Exploitation, credential attacks, stealth, persistence, browser interception, unrestricted proxy/replay and autonomous offensive agents are not added.
+This is an independent addition of mission/graph/evidence/retest workflows (2.1) and operational modes, deep TLS analysis, governed expansion, an evidence gate and read-only ELF triage (2.2) to Redstrike. It is not a full ARTEX source merge, feature clone or compatibility layer; see [ARTEX_SCOPE.md](docs/ARTEX_SCOPE.md) and [CAPABILITY_MODES.md](docs/CAPABILITY_MODES.md). Exploitation, credential attacks, exploit generation, stealth, persistence, browser interception, unrestricted proxy/replay and autonomous offensive agents are not added.
+
+## 2.2 capability layer limits
+
+- A mode is a ceiling, not a permission. Every action still passes the engagement's signed RoE window, allowlist, DNS pinning and cloud-metadata guard. An admin toggle can disable a mode; no toggle can re-enable a permanently banned flag.
+- Deep TLS analysis performs bounded handshakes against a pinned IP only. It does **not** check revocation (OCSP/CRL), does not measure application-protocol behaviour, and external adapters (testssl.sh, sslyze, sslscan) are approval-gated and reported as `not_invoked` unless explicitly run. Certificate facts come from a minimal in-tree DER parser; an unparseable certificate is reported as such rather than guessed.
+- A deprecated-protocol or weak-cipher result depends on the Python/OpenSSL build used by the container. The report names the observed negotiation; it is not a claim about every client population.
+- Expansion requests change nothing until a different approver decides them, must cite a declared RoE clause, and expire after the configured TTL. Target expansion re-checks allowlist syntax and the metadata/CIDR guards before review, so a permanently prohibited destination can never even be proposed.
+- A budget expansion extends the deadline by the approved delta; it does not reset a paused mission's lost time, cannot revive a terminal mission, and cannot exceed the mode ceiling.
+- The seven-question gate is deterministic over stored evidence. It can reject a true positive whose provenance is model-only, and it does not verify business impact, compensating controls or asset criticality.
+- Agent roles are advisory text. They cannot execute tools, approve requests, widen scope or confirm findings; a role listing is not evidence of coverage.
+- Binary triage parses ELF metadata inside the configured artifact directory only. It performs no disassembly, no execution, no exploitation and no remote interaction, and reports `exploit_generation: not_supported`.
+- 2.2 numbers a wider boundary; it is not a measured performance or detection-capability improvement and makes no such claim.
 
 ## Authorization and traffic
 

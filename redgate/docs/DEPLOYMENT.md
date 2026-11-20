@@ -1,4 +1,4 @@
-# Deployment, Upgrade and Operations — 2.1.0
+# Deployment, Upgrade and Operations — 2.2.0
 
 ## 1. Prerequisites and trust boundary
 
@@ -36,7 +36,7 @@ Open `http://127.0.0.1:8000`; use **Token** to authenticate. Compose forces `RED
 ```bash
 ./scripts/redgate.sh up --lite
 # Standalone build target, not REDGATE_IMAGE_FLAVOR=evidence:
-docker build --target evidence -f sandbox_runner/Dockerfile -t redgate/runner:2.1.0-evidence .
+docker build --target evidence -f sandbox_runner/Dockerfile -t redgate/runner:2.2.0-evidence .
 ```
 
 `lite` does not disable policy checks to make unsupported languages pass. Go dual-verification skills may have failed/unavailable adapter steps. Check `/api/v1/health` validator booleans and `sandbox_runner.languages`; readiness alone does not establish complete skill/tool support. First-use Go compilation has finite time/memory and may fail closed on a cold/restricted host. Plan capacity based on measurements, not an assumed speedup.

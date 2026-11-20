@@ -1,0 +1,265 @@
+# Redstrike 2.2 — Operational Modes, Governed Expansion and Deep TLS
+
+Status: implemented in `2.2.0`.
+Audience: engagement owners (IR/Red Team leads), approvers, platform administrators.
+
+This document describes what 2.2 adds, **what it deliberately does not add**, and
+how each new capability is bounded. It is a design record, not legal advice and
+not a claim of feature parity with any referenced upstream project.
+
+---
+
+## 1. Where the new controls live
+
+| Component | File | Role |
+|---|---|---|
+| Mode/capability policy | `config/capabilities.yaml` | Declarative ceilings, capability sets, TLS profile, expansion limits, gate questions |
+| Policy engine | `gateway/capabilities.py` | Validates the manifest, resolves capabilities, enforces ceilings |
+| Deep TLS analysis | `gateway/tls_audit.py` | Pinned handshakes, protocol sweep, cipher/certificate/HSTS evaluation |
+| DER reader | `gateway/x509_lite.py` | Dependency-free certificate facts (stdlib only) |
+| Evidence gate | `gateway/evidence_gate.py` | Deterministic seven-question confirmation |
+| Expansion engine | `gateway/expansion.py` | Request/decide/apply for scope, budget, quota, privilege |
+| Agent role catalogue | `gateway/agents_registry.py` | 21 advisory roles, capability-intersected |
+| Binary triage | `gateway/binary_triage.py` | Read-only ELF hardening inspection |
+| API | `gateway/capability_api.py` | `/api/v1/capabilities`, `/tls/*`, `/expansion/*`, `/gate/*`, `/agents/*`, `/binary/*`, `/session/start` |
+| Storage | `gateway/migrations/003_capability_modes.sql` | `tls_audits`, `expansion_requests`, `evidence_gate_results`, mission mode columns |
+| Tests | `tests/test_capability_modes.py` | 65 tests (policy, gate, TLS, expansion, ELF, X.509) |
+
+---
+
+## 2. The control chain
+
+A 2.2 action is authorised only if **all** of these layers agree. Each one can
+refuse independently, and every refusal is written to the hash-chained audit
+ledger before the HTTP error is returned.
+
+```
+Bearer token (SHA-256, RBAC, RPM)
+  -> engagement assignment (operator <-> engagement)
+    -> signed RoE window (valid_from .. valid_until, engagement active)
+      -> allowlist membership + DNS pinning + metadata/rebinding guard
+        -> mode declaration (is the mode enabled? does it include the capability?)
+          -> live tool policy (enabled? approval-gated? risk level?)
+            -> mission ceiling (hosts / actions / seconds)
+              -> independent approval (Two-Person Rule, enforced in SQL too)
+                -> capability-specific guard (e.g. artifact root, port profile)
+```
+
+A capability name never grants anything by itself. `capabilities.py` intersects
+the mode's declared set with the SQLite `tool_policy` row, so disabling a tool
+still disables every capability that depends on it.
+
+### Administrator kill switch
+
+`tool_policy` row `redgate_capability_mode` (seeded by migration 003):
+
+```json
+{"enabled": true, "modes": null}
+```
+
+`modes: null` means "the manifest is authoritative". Setting
+`{"enabled": false}` disables **all** modes without touching the manifest;
+setting a list restricts the platform to those modes. Only an `admin` principal
+may change it, and the change is audited.
+
+---
+
+## 3. Operational modes
+
+Every mode has a validated ceiling which is clamped against hard model limits
+(`MODEL_HARD_LIMITS`: 8 hosts, 128 actions, 3600 s). A manifest that declares a
+larger ceiling is rejected at start-up, so a typo cannot widen the platform.
+
+Modes with a TLS surface (`vulnerability_discovery`, `bug_bounty`, `pentest`,
+`assessment`) declare `tls_deep_analysis` as a **mandatory** capability. The
+session-start brief reports whether that duty is still pending.
+
+`ctf` has no mandatory TLS duty (it is an offline scenario) and cannot request
+scope expansion.
+
+---
+
+## 4. Deep SSL/TLS analysis
+
+### How a handshake is made safe
+
+1. The scope engine resolves the target and pins one IP.
+2. The socket dials **the pinned IP**, while `server_hostname` keeps the
+   original name for SNI and certificate matching.
+3. Only ports present in **both** the analysis profile and the
+   `tls_inspect` tool policy are reachable.
+4. The listener's own protocol floor and cipher policy are used for the sweep;
+   Redstrike never negotiates on behalf of the target.
+
+### What is measured
+
+- Protocol floor (TLS 1.3, 1.2, 1.1, 1.0; SSLv3 is probed only if the Python
+  build supports it), and whether a deprecated protocol is still negotiable.
+- Negotiated cipher suite and key size per protocol; weak markers
+  (RC4, 3DES, NULL, EXPORT, MD5) and cipher suites under 128 bits.
+- Certificate: subject/issuer CN, SAN set (DNS **and** IP), validity window,
+  days until expiry, public-key type and size, signature algorithm, self-issue,
+  SHA-256 fingerprint, and trust status.
+- HSTS presence and `max-age` (read through the governed MCP `http_headers`
+  tool, never with a private HTTP client).
+
+An untrusted chain is a **finding**, not a reason to abort. Because Python's
+`getpeercert()` returns an empty mapping on unverified sessions, the DER blob is
+parsed by `gateway/x509_lite.py`, which adds no dependency.
+
+### Determinism
+
+Every finding produced here is derived from a re-runnable handshake, so it is
+marked `dual_verified` and normally reaches `confirmed` through the evidence
+gate. The one intentional exception is `tls:certificate-metadata-unavailable`,
+which is flagged `requires_human_judgment` because "could not parse" is an
+observation about the collector, not about the target.
+
+### External adapters (testssl.sh / sslyze / sslscan)
+
+`config/capabilities.yaml` declares them with an argv allow-list and a value
+regex. They are **approval-gated** and their record explicitly reports
+`external_adapters: "not_invoked"` unless an approved adapter run is executed.
+A template that cannot be satisfied by an enabled policy never runs: the code
+refuses rather than degrading silently.
+
+---
+
+## 5. Mid-engagement expansion
+
+An operator may request four kinds of widening. **None is applied on submission.**
+
+| Kind | Effect when approved | Hard limit |
+|---|---|---|
+| `targets` | Adds allowlist entries and new pending mission intents | 8 per request, mode host ceiling |
+| `budget` | Raises `max_actions`/`max_seconds` and shifts the deadline by the same delta | +32 actions, +900 s, totals 128/3600 |
+| `quota` | Raises the **current period's** quota ceilings for the requester | +200 calls, +200000 tokens |
+| `privilege` | Records an authorisation reference only | Fixed enum of four classes |
+
+Guards, in order:
+
+1. Justification of at least 12 characters.
+2. The engagement must declare `expansion_clauses` in `allowlist.yaml`.
+3. The request must cite one of those clauses verbatim.
+4. A per-mission cap on pending requests (default 5).
+5. Targets pass `validate_allowlist_entry_syntax` (metadata denied, CIDR broader
+   than /16 denied) and must **not** already be in scope.
+6. `max_actions` still has to fit the mode ceiling.
+7. The decision requires `approver`/`admin` **and** a different operator id —
+   the existing `approval_queue` row supplies the second check at SQL level.
+
+Applying an approved request writes a second audit entry containing the exact
+before/after values, so the ledger shows *when* a limit moved and *who* moved it.
+
+> A budget increase is not free time: a paused mission does not gain slack, and a
+> terminal mission cannot be revived. Terminal states are refused outright.
+
+---
+
+## 6. The seven-question evidence gate
+
+| Question | Blocking | Fails when |
+|---|---|---|
+| `reproducible_evidence` | yes | no hashed artifact, or empty evidence text |
+| `in_scope` | yes | no engagement bound, or asset outside scope at check time |
+| `security_impact` | yes | style/cosmetic key, or unknown severity |
+| `not_by_design` | yes | analyst memory or context marks it accepted |
+| `independent_validation` | yes | provenance is model-only (`llm`, `synthesis`, …) |
+| `adversarial_review` | yes | confidence below the floor, or a refutation exists |
+| `actionable_remediation` | no | no remediation text attached |
+
+Verdicts:
+
+- `confirmed` — all seven pass. The only status that may be reported as verified.
+- `candidate` — every **validity** question passed but remediation is missing.
+- `rejected` — any blocking question failed. Not reportable as a finding.
+
+If the gate is disabled by policy, the best possible verdict is `candidate`:
+the platform never auto-confirms without its own gate.
+
+---
+
+## 7. Agent roles
+
+`gateway/agents_registry.py` defines 21 roles across recon, transport, web
+hunters, discovery, validation, correlation, governance, bug bounty, reporting
+and binary phases. Each role declares:
+
+- the capabilities it needs (intersected with the active mode),
+- the governed primitives it may *plan* against,
+- its objective, and
+- its own **refutation** condition (how it can be wrong).
+
+Every role reports `can_execute: false`, `can_approve: false`,
+`can_widen_scope: false`. `/api/v1/agents/plan` also returns
+`unavailable_roles` with the exact capabilities a mode is missing, so a gap is
+visible rather than silently ignored.
+
+---
+
+## 8. Binary layer: read-only by construction
+
+`gateway/binary_triage.py` parses ELF headers, program headers, the dynamic
+section and symbol tables to report NX, PIE, RELRO (none/partial/full), stack
+canary, RPATH/RUNPATH, interpreter and writable+executable segments.
+
+Deliberate omissions:
+
+- No `pwntools` import, vendor copy or subprocess invocation.
+- No ROP/shellcode/format-string generation.
+- No debugger attachment, no remote process interaction.
+- Reads are confined to `REDGATE_ARTIFACT_DIR`; `..`, absolute paths and
+  symlink escapes are refused.
+
+Every triage response states `"exploit_generation": "not_supported"`.
+
+---
+
+## 9. Reference projects and provenance
+
+2.2 was designed after reviewing three public repositories by the same author.
+**No source code, assets, agent markdown, hooks or dependencies were copied.**
+
+| Reference | What informed 2.2 | What is *not* included |
+|---|---|---|
+| `alireza-bokharaei/hexstrike-ai` | Breadth of tool categories and the idea of a decision layer selecting tools | The 150+ tool server itself; the active catalogue remains Redstrike's curated, allow-listed set. Registry size is reported at runtime, not claimed. |
+| `alireza-bokharaei/pentest-agents` | Specialist-role decomposition and an anti-Goodhart validation gate | Its 48 agents, 26 commands, hooks, CLI tools and MCP servers. Roles here are declarative and advisory. |
+| `alireza-bokharaei/pwntools` | The idea of a binary-focused workflow | The library, exploit automation and any remote interaction. |
+
+Neither `hexstrike-ai` nor `pentest-agents` declared a licence file at review
+time, which is an additional reason their code is neither vendored nor
+redistributed here.
+
+---
+
+## 10. What 2.2 still refuses
+
+These are policy decisions, not unfinished work:
+
+- **No credential dumping, password attacks or hash cracking** as autonomous
+  capabilities. `hydra` and `john` remain disabled-by-default, approval-gated
+  rows in `config/tool_policy.yaml` with empty flag allow-lists.
+- **No destructive exploitation.** The `destructive_confirmation` privilege
+  class records an authorisation reference; it does not create a destructive tool.
+- **No unbounded or mass scanning.** Port probes stay capped, `nmap` keeps `-T1`
+  / `-T2`, and the action budget is enforced server-side.
+- **No exploit generation.** Even in `ctf` mode the binary layer only reports
+  hardening facts.
+- **No model-authorised confirmation.** A model cannot pass the gate, approve a
+  request, raise a budget or widen scope.
+
+---
+
+## 11. Operational notes and limitations
+
+- File handles: a TLS audit performs up to six short handshakes per target and
+  is bounded by `timeout_sec` (default 10 s, hard cap 30 s).
+- Certificate parsing is deliberately minimal: it reads the fields above and
+  refuses anything it cannot parse rather than guessing. Revocation (OCSP/CRL)
+  is **not** checked.
+- Expansion of `targets` creates new *pending* intents; a running mission will
+  not pick them up mid-flight unless it is resumed after the plan checkpoint.
+- The `/api/v1/capabilities/summary` endpoint exposes only aggregate counts, not
+  raw evidence, and is engagement-scoped.
+- All 2.1 behaviour is preserved when `mode_id` is omitted, which is what the
+  existing test-suite continues to assert.

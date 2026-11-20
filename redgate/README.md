@@ -1,4 +1,4 @@
-# Redstrike 2.1.0 — راهنمای فنی / Technical Guide
+# Redstrike 2.2.0 — راهنمای فنی / Technical Guide
 
 [معرفی پروژه / Project overview](../README.md) · [فارسی](#fa) · [English](#en)
 
@@ -69,6 +69,7 @@ Gateway احراز هویت، مجوز engagement، RoE، محدوده، سهم�
 | متغیر | کاربرد |
 |---|---|
 | `REDGATE_DB_PATH` | مسیر SQLite؛ در Compose برابر `/app/data/redgate.db` |
+| `REDGATE_ARTIFACT_DIR` | ریشهٔ مجاز برای بررسی سخت‌سازی فایل‌های باینری (پیش‌فرض `data/artifacts`) |
 | `REDGATE_CONFIG_DIR` / `REDGATE_SKILLS_DIR` | مسیر تنظیمات و Skills |
 | `REDGATE_INTERNAL_TOKEN` | اعتبارنامهٔ ارتباط Gateway با سرویس‌های داخلی |
 | `REDGATE_TOKEN_HASH_*` | هش توکن‌های اپراتور که تنظیمات هویت به آن‌ها ارجاع می‌دهد |
@@ -99,6 +100,22 @@ bootstrap فایل `.env` خصوصی می‌سازد؛ آن را وارد Git ن
 | سایر امکانات | `/skills`، `/memory`، `/models/*`، `/scan`، `/script/*`، `/approvals`، `/allowlist`، `/policies/*` و `/audit/verify`؛ با مجوزهای متناسب هر مسیر |
 
 مسیرهای `/healthz`، `/readyz` و `/api/v1/health` بررسی سرویس و قابلیت‌های نصب‌شده را ارائه می‌کنند؛ آن‌ها را با اجرای ارزیابی اشتباه نگیرید.
+
+### قراردادهای API ۲٫۲
+
+| مسیر | کاربرد |
+|---|---|
+| `GET /api/v1/capabilities` | توصیف حالت‌ها، لایه‌ها، پرسش‌های دروازه و ثابت‌های غیرقابل‌تغییر |
+| `POST /api/v1/session/start` | پروتکل آغاز جلسه: مأموریت، محدوده، RoE، بودجه و وضعیت TLS |
+| `POST /api/v1/capabilities/resolve` | تصمیم مجاز/ممنوع برای هر قابلیت در یک حالت |
+| `POST /api/v1/capabilities/toggle` | فعال/غیرفعال‌سازی حالت‌ها (فقط admin) |
+| `POST /api/v1/tls/audit` | تحلیل عمیق TLS روی هدف در محدوده؛ نتیجه تغییرناپذیر و هش‌شده |
+| `GET /api/v1/tls/audits` | فهرست تحلیل‌های TLS یک engagement |
+| `POST /api/v1/expansion/requests` | ثبت درخواست گسترش (هدف/بودجه/سهمیه/سطح بازبینی) |
+| `POST /api/v1/expansion/requests/{id}/decide` | تأیید یا رد توسط فرد دوم |
+| `POST /api/v1/gate/evaluate` | ارزیابی یافته‌ها با دروازهٔ هفت‌پرسشی |
+| `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | کاتالوگ و برنامهٔ مشورتی نقش‌ها |
+| `POST /api/v1/binary/triage` | بررسی فقط‌خواندنی سخت‌سازی ELF (approver/admin) |
 
 ### بودجه، شواهد و بازآزمایی
 
@@ -197,6 +214,7 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `config/allowlist.yaml` | Authorized targets, engagement windows/status and DNS controls |
 | `config/operators.yaml` | Identity, role, quota, token-hash environment names and engagement access |
 | `config/tool_policy.yaml` | Tool availability, limits and risk levels |
+| `config/capabilities.yaml` | 2.2 operational modes, ceilings, TLS profile, expansion limits and evidence-gate questions |
 | `config/script_policy.yaml` | Script validation/execution policy |
 | `config/llm_proxy.yaml` | Initial model-proxy settings |
 | `config/local_models.yaml` | Model catalog and quantization metadata |
@@ -210,6 +228,7 @@ Replace sample settings with your actual authorization. A role name alone does n
 | Variable | Purpose |
 |---|---|
 | `REDGATE_DB_PATH` | SQLite path; `/app/data/redgate.db` in Compose |
+| `REDGATE_ARTIFACT_DIR` | Only directory tree readable by binary hardening triage (default `data/artifacts`) |
 | `REDGATE_CONFIG_DIR` / `REDGATE_SKILLS_DIR` | Configuration and Skill directories |
 | `REDGATE_INTERNAL_TOKEN` | Gateway-to-internal-service credential |
 | `REDGATE_TOKEN_HASH_*` | Operator-token hashes referenced by identity configuration |
@@ -240,6 +259,22 @@ Interactive schemas are available at **`/docs`**. Workspace routes below require
 | Other features | `/skills`, `/memory`, `/models/*`, `/scan`, `/script/*`, `/approvals`, `/allowlist`, `/policies/*` and `/audit/verify`, subject to each route's permissions |
 
 `/healthz`, `/readyz` and `/api/v1/health` provide service checks and installed capabilities; they do not execute an assessment.
+
+### 2.2 API contracts
+
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/capabilities` | Describe modes, layers, gate questions and invariants |
+| `POST /api/v1/session/start` | Session-start protocol: mission, scope, RoE, budget and TLS status |
+| `POST /api/v1/capabilities/resolve` | Allow/deny decision per capability in a mode |
+| `POST /api/v1/capabilities/toggle` | Enable/disable modes (admin only) |
+| `POST /api/v1/tls/audit` | Deep TLS analysis of an in-scope target; immutable, hashed record |
+| `GET /api/v1/tls/audits` | Engagement-scoped TLS audit history |
+| `POST /api/v1/expansion/requests` | Submit a scope/budget/quota/privilege expansion request |
+| `POST /api/v1/expansion/requests/{id}/decide` | Independent approval or rejection |
+| `POST /api/v1/gate/evaluate` | Evaluate findings against the seven-question gate |
+| `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | Advisory role catalogue and plan |
+| `POST /api/v1/binary/triage` | Read-only ELF hardening triage (approver/admin) |
 
 ### Budgets, evidence and retests
 
