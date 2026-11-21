@@ -4,7 +4,7 @@
 
 **Authorized security assessment with policy controls and an auditable workflow**
 
-نسخه / Version **2.3.0** · **Python · Bash · Go · JavaScript · Docker**
+نسخه / Version **2.3.1** · **Python · Bash · Go · JavaScript · Docker** · ۱۸۳ ابزار / ۱۰۶ مسیر API
 
 [فارسی](#fa) · [English](#en) · [راهنمای فنی / Technical guide](redgate/README.md)
 
@@ -34,8 +34,27 @@
 - **کنترل اجرای اسکریپت:** اعتبارسنجی Python، Bash، Go و JavaScript، کنترل SHA-256 و اجرای محدود فرایندها؛ همراه با سیاست ابزار، سهمیه، نقش‌ها و مسیر تأیید دونفره برای عملیات مشمول تأیید.
 - **گزارش و عملیات:** خروجی Markdown/JSON، سوابق audit زنجیره‌هش‌شده، پشتیبان‌گیری سازگار با SQLite WAL، چرخش کلید و ابزارهای Bash برای مدیریت سرویس‌ها.
 - **حالت‌های عملیاتی و گسترش کنترل‌شده (۲٫۲):** اعلام حالت مأموریت، تحلیل عمیق و اجباری TLS، درخواست گسترش دامنه/بودجه/سهمیه با تأیید فرد دوم و استناد به بند RoE، دروازهٔ هفت‌پرسشی شواهد، کاتالوگ نقش‌های مشورتی و بررسی سخت‌سازی ELF.
+- **سطح تهاجمی کنترل‌شده (۲٫۳):** ۱۸۳ ابزار کاتالوگ‌شده در ۱۵ خانواده با سیاست فلگ اعلانی برای هر ابزار، وضعیت پیش‌فرض «درون محدوده اجازه‌دهنده» با تأیید دو‌نفره فقط برای اقدام‌های پرتأثیر، چرخهٔ عمر PoC با بازتولید مستقل، زنجیرهٔ حمله، کشف بازگشتی با بودجهٔ اسکن انبوه، گردش‌کار Bug Bounty، لایهٔ pwntools و ۷۰ نقش مشورتی با حلقهٔ شکار و حافظهٔ فقط‌افزودنی.
+- **موتور Intel و دفتر پوشش (۲٫۳٫۱):** رتبه‌بندی کلاس‌های آسیب‌پذیری با وزن‌های منتشرشده، سطل‌بندی سطح حمله (P1/P2/P3/Kill)، تقسیم بودجه، کف «خسته‌شده»، برنامه‌ریزی زنجیره بر پایهٔ گراف قابلیت، امتیاز کفایت شواهد پیش از ارسال و CVSS 3.1؛ همراه با دفتر پوشش (پوشش بدون ثبت بررسی پذیرفته نمی‌شود) و اثرانگشت/دیف پاسخ.
+- **خانواده‌های موبایل، بی‌سیم و فارنزیک (۲٫۳٫۱):** ۹ ابزار موبایل، ۱۴ ابزار بی‌سیم (با علامت `requires_root`) و ۱۶ ابزار فارنزیک که ورودی‌شان فایل/ایمیج است، نه میزبان.
 
-### آنچه در ۲٫۲ افزوده شد: حالت‌های عملیاتی و مرز گسترده‌تر
+### آنچه در ۲٫۳ و ۲٫۳٫۱ افزوده شد: سطح تهاجمی گسترده، یک مدل کنترل
+
+نسخهٔ ۲٫۳ پلتفرم را *قادر* به کار تهاجمی واقعی می‌کند — **۱۸۳ ابزار** در خانواده‌های DNS، شبکه، وب، تزریق، TLS، ابر، Active Directory، رمز عبور، OSINT، باینری، جست‌وجوی اکسپلویت، گزارش‌دهی، و از ۲٫۳٫۱ **موبایل، بی‌سیم و فارنزیک** — و مرز همان‌جایی می‌ماند که ۲٫۱ گذاشت: محدودهٔ امضاشده، allowlist، pinning روی DNS، مسدودسازی متادیتای ابری و دفتر audit فقط‌افزودنی.
+
+| اقدام | تأیید لازم |
+|---|---|
+| بررسی‌های فقط‌خواندنی (هدر، DNS، TLS، probe پورت) | ندارد |
+| آزمون فعال عادی (nmap، nuclei، ffuf، gobuster) | تأیید وضعیت توسط اپراتور |
+| پرتأثیر: PoC تغییردهندهٔ وضعیت، کار با اعتبارنامه، اسکن انبوه فراتر از بودجه، تلاش احراز هویت آنلاین | **دو نفر** |
+
+وضعیت (posture) تعیین می‌کند چقدر *پرسیده شود*، نه *چه چیزی در دسترس باشد*: `posture:ctf_aggressive` هم هدف بیرون محدوده را رد می‌کند و هم `sqlmap --os-shell` را. سه نکتهٔ صادقانه: کاتالوگ ۱۸۳ ابزار دارد ولی روی تصویر مرجع فقط چهار باینری نصب است، `pwntools` نصب نیست (`unavailable`، بدون جعل خروجی)، و همگام‌سازی Bug Bounty بدون اعتبارنامه انجام نمی‌شود.
+
+نکتهٔ جدید ۲٫۳٫۱: ابزارهای خانوادهٔ جدید هم همان قرارداد را دارند — فلگ ناشناخته در `build_argv` رد می‌شود، برای بی‌سیم فلگ‌های آسیب‌زن به اطرافیان (`aireplay-ng --deauth`، افعال flood در `mdk4`، `--hostile-portal` در `eaphammer`، `adb install`، `frida --spawn`) در همان لایه رد می‌شوند، و ابزار فارنزیک/موبایل آفلاین **مسیر فایل** می‌گیرد نه هاست.
+
+جزئیات: [docs/OFFENSIVE_SURFACE.md](redgate/docs/OFFENSIVE_SURFACE.md)، [docs/AUTHORITY_AUDIT.md](redgate/docs/AUTHORITY_AUDIT.md) و [docs/VERIFICATION_2.3.md](redgate/docs/VERIFICATION_2.3.md).
+
+### آنچه در ۲٫۲ افزوده شد: حالت‌های عملیاتی و گسترش کنترل‌شده
 
 نسخهٔ ۲٫۲ دامنهٔ اختیارات را **بازتر** می‌کند، ولی هیچ‌یک از ثابت‌های کد را حذف نمی‌کند. مأموریت اکنون می‌تواند یک **حالت عملیاتی** اعلام کند؛ سقف اقدام، میزبان و زمان همان حالت از `config/capabilities.yaml` خوانده و روی مأموریت قفل می‌شود:
 
@@ -46,11 +65,14 @@
 | `pentest` | ارزیابی سرتاسری مجاز | ۸ / ۶۴ / ۱۸۰۰ |
 | `ctf` | حل چالش، بدون گسترش شبکه | ۴ / ۳۲ / ۹۰۰ |
 | `assessment` | بازبینی پیکربندی و سخت‌سازی | ۸ / ۴۸ / ۱۸۰۰ |
+| `ssl_tls_analysis` | ارزیابی فقط‌حمل‌ونقل (۲٫۳٫۱) | ۸ / ۶۴ / ۱۸۰۰ |
 
 - **تحلیل عمیق SSL/TLS الزامی است.** در هر حالت دارای سطح TLS، اسکن پروتکل (TLS 1.0 تا 1.3)، کشف رمزهای ضعیف، بررسی گواهی (انقضا، SAN، اندازهٔ کلید، الگوریتم امضا، زنجیرهٔ اعتماد) و HSTS انجام می‌شود. اتصال همیشه به IP تأییدشده Pin می‌شود و SNI اصلی حفظ می‌شود. نتیجه به‌صورت رکورد تغییرناپذیر و هش‌شده ذخیره می‌شود.
 - **درخواست گسترش میان‌مأموریت.** اپراتور می‌تواند هدف، بودجه، سهمیه یا سطح بازبینی بیشتری **درخواست** کند. تا زمانی که فرد دیگری آن را تأیید نکند هیچ چیز تغییر نمی‌کند. هر درخواست باید به یک **بند صریح RoE** در `allowlist.yaml` استناد کند؛ انگیزشی که چنین بندی ندارد اصلاً قابل گسترش نیست.
 - **دروازهٔ هفت‌پرسشی شواهد.** یک یافته فقط وقتی «تأییدشده» است که هر هفت پرسش با شواهد قطعی و قابل تکرار پاسخ بگیرد. خروجی مدل زبانی به‌تنهایی هرگز پرسش‌های بازدارنده را رد نمی‌کند.
-- **کاتالوگ نقش‌های مشورتی.** ۲۱ نقش (recon، hunter، chain-builder، devil's advocate، report-writer و …) فقط برنامه می‌دهند؛ نه ابزاری اجرا می‌کنند، نه دامنه را گسترش می‌دهند، نه یافته‌ای را تأیید می‌کنند.
+- **کاتالوگ نقش‌های مشورتی.** ۷۰ نقش (recon، شکارچیان کلاس‌محور، chain-builder، devil's advocate، analyst، report-writer و …) فقط برنامه می‌دهند؛ هر نقش شرط ابطال خودش را دارد و هیچ‌یک ابزاری اجرا نمی‌کند، دامنه را گسترش نمی‌دهد یا یافته‌ای را تأیید نمی‌کند.
+- **ترکیب حالت‌ها (۲٫۳٫۱).** یک مأموریت می‌تواند چند حالت را با هم اعلام کند (`pentest+ssl_tls_analysis` یا نام کوتاه `pentest_plus_tls`). ترکیب فقط مجموعهٔ قابلیت‌ها را بزرگ می‌کند: سقف = **کمینهٔ** اجزا، الزامات = اجتماع (قابل حذف نیستند)، بندهای گسترش = اشتراک، حداکثر سه جزء و هر جزء باید در allow-list ادمین باشد.
+- **موتور تصمیم (۲٫۳٫۱).** `POST /api/v1/decide/approach` مشاهدات را به گام‌های اولویت‌دار تبدیل می‌کند؛ هر گام ردیف سیاست حاکم بر خود را نام می‌برد، کار انجام‌شده صریحاً `skipped_as_already_run` می‌شود و پاسخ `advisory_only` است — هیچ چیز اجرا نمی‌شود.
 - **لایهٔ دودویی محدود.** برای مأموریت‌های CTF/باینری، بررسی فقط‌خواندنی سخت‌سازی ELF (NX، PIE، RELRO، canary، RPATH، بخش‌های W+X) با کتابخانهٔ استاندارد پایتون انجام می‌شود. `pwntools` وارد یا فراخوانی نمی‌شود و هیچ قابلیت ساخت اکسپلویت وجود ندارد.
 
 **ثابت‌های غیرقابل‌تغییر (در ۲٫۲ هم پابرجا):** فلگ‌های ممنوع `nmap`/`sqlmap` در کد قفل‌اند، رنج‌های متادیتای ابری همیشه مسدودند، قاعدهٔ دو‌نفره در سطح دیتابیس اعمال می‌شود، و اجرای اسکریپت همچنان به اعتبارسنجی استاتیک و هش SHA-256 وابسته است. هیچ حالت یا تأییدی نمی‌تواند این‌ها را باز کند.
@@ -64,6 +86,7 @@
 | **MCP — Python** | سرویس داخلی ابزارها با احراز هویت و ورودی محدود |
 | **Runner — Go** | جمع‌آوری بومی شواهد HTTP و اجرای محدود اسکریپت‌های تأییدشده |
 | **SQLite** | داده‌های ارزیابی، حافظه، پیشرفت مأموریت، شواهد و سوابق؛ همراه با WAL و migrationهای افزایشی |
+| **Intel و پوشش — Python** | رتبه‌بندی کلاس‌ها، بودجه، برنامه‌ریزی زنجیره، امتیاز شواهد، CVSS 3.1، دفتر پوشش و اثرانگشت پاسخ |
 | **Bash و Docker Compose** | راه‌اندازی، اعتبارنامه، پشتیبان‌گیری، بسته‌بندی و تفکیک شبکه‌های کنترل، هدف و inference |
 
 پیکربندی فعلی برای **یک فرایند Gateway به‌ازای هر پایگاه دادهٔ SQLite** است، نه زمان‌بند توزیع‌شده. پروفایل اختیاری PostgreSQL در Compose صرفاً سرویس پایگاه داده را ایجاد می‌کند و backend برنامه را تغییر نمی‌دهد.
@@ -120,10 +143,11 @@ Compose فقط پورت Gateway را روی loopback میزبان منتشر و 
 1. **تعریف محدوده:** مجوز، اهداف، بازهٔ RoE، نقش‌ها، سهمیه و سیاست ابزارها را بازبینی کنید.
 2. **برنامه‌ریزی:** ارزیابی یا engagement مجاز را انتخاب و مأموریت را با هدف، Skill و بودجهٔ محدود ذخیره کنید.
 3. **شروع صریح:** مأموریت را شروع کنید؛ وضعیت، پیشرفت و مسیر بررسی در کنسول قابل مشاهده است.
-4. **بازبینی شواهد:** یافته‌ها، هدرها، پیش‌نمایش مجاز و ارتباطات گراف را بررسی کنید. وجود یک دارایی در گراف، اثبات بررسی‌شدن یا امن‌بودن آن نیست.
-5. **بازآزمایی و گزارش:** بررسی‌های پشتیبانی‌شده را با تصمیم صریح تکرار و گزارش Markdown یا JSON را برای تحلیل انسانی دریافت کنید.
+4. **بازبینی شواهد:** یافته‌ها، هدرها، پیش‌نمایش مجاز و ارتباطات گراف را بررسی کنید. وجود یک دارایی در گراف، اثبات بررسی‌شدن یا امن‌بودن آن نیست — فقط بررسی‌ای که در دفتر پوشش ثبت شده «پوشش» است.
+5. **اولویت‌بندی:** فرضیه‌های بعدی را رتبه‌بندی کنید (`/intel/classes`)، بودجهٔ باقی‌مانده را تقسیم کنید و هر چیزی را که اثرانگشت پاسخش تغییر کرده دوباره بررسی کنید.
+6. **بازآزمایی و گزارش:** بررسی‌های پشتیبانی‌شده را با تصمیم صریح تکرار کنید، نوشتار را با `/intel/evidence-score` بسنجید و گزارش Markdown یا JSON را برای تحلیل انسانی دریافت کنید.
 
-هر مأموریت **۱ تا ۸ میزبان**، **۱ تا ۶۴ اقدام** با پیش‌فرض ۲۴، و **۱۰ تا ۱۸۰۰ ثانیه** با پیش‌فرض ۳۰۰ می‌پذیرد. با اعلام یک حالت ۲٫۲، سقف همان حالت اعمال می‌شود و اعلام‌نکردن حالت یعنی همان محدودهٔ پیش‌فرض ۲٫۱ باقی می‌ماند. هم‌زمان حداکثر **دو مأموریت در کل سامانه و یک مأموریت برای هر مالک** اجرا می‌شود. توقف موقت، مهلت را تمدید نمی‌کند و بودجهٔ اقدام رزروشده یا ناموفق بازگردانده نمی‌شود.
+هر مأموریت **۱ تا ۸ میزبان**، **۱ تا ۶۴ اقدام** با پیش‌فرض ۲۴، و **۱۰ تا ۱۸۰۰ ثانیه** با پیش‌فرض ۳۰۰ می‌پذیرد. با اعلام یک حالت (یا ترکیب حالت‌ها)، سقف همان حالت — یا کمینهٔ سقف اجزای ترکیب — اعمال و روی مأموریت قفل می‌شود؛ اعلام‌نکردن حالت یعنی همان محدودهٔ پیش‌فرض ۲٫۱ باقی می‌ماند. هم‌زمان حداکثر **دو مأموریت در کل سامانه و یک مأموریت برای هر مالک** اجرا می‌شود. توقف موقت، مهلت را تمدید نمی‌کند و بودجهٔ اقدام رزروشده یا ناموفق بازگردانده نمی‌شود.
 
 ### مدل زبانی محلی
 
@@ -169,7 +193,7 @@ npm ci --ignore-scripts
 
 </div>
 
-`verify.sh` شامل بررسی Bash/ShellCheck، نحو JavaScript و ESLint، تست‌های رابط، تست race و vet و build در Go، Ruff و مجموعهٔ تست‌های Python است. اعتبارسنجی Compose فقط در صورت وجود ابزار و `.env` انجام می‌شود؛ این اسکریپت به‌تنهایی ساخت و اجرای کانتینر را اثبات نمی‌کند.
+`verify.sh` شامل بررسی Bash/ShellCheck، نحو JavaScript و ESLint، تست‌های رابط، تست race و vet و build در Go، Ruff و مجموعهٔ تست‌های Python است. وضعیت فعلی: **۲۹۴ تست موفق** و سه خطای محیطی (نبود `shellcheck`/`go`/`eslint` روی تصویر). اعتبارسنجی Compose فقط در صورت وجود ابزار و `.env` انجام می‌شود؛ این اسکریپت به‌تنهایی ساخت و اجرای کانتینر را اثبات نمی‌کند.
 
 راه‌انداز محلی به‌طور پیش‌فرض loopback، حالت `mock` و اعتبارنامهٔ موقت خصوصی دارد؛ مسیر فایل توکن‌ها را چاپ می‌کند و `.env` را خودکار به shell وارد نمی‌کند. این اجرا جای جداسازی میزبان را نمی‌گیرد. حالت `REDGATE_DEMO_MODE=true` فقط برای آزمایشگاه خصوصی است؛ هر فردی که به چنین Gatewayای دسترسی داشته باشد می‌تواند هویت آزمایشی بگیرد.
 
@@ -188,7 +212,10 @@ npm ci --ignore-scripts
 - [معماری و یکپارچگی داده](redgate/docs/ARCHITECTURE.md)
 - [استقرار، پشتیبان‌گیری، ارتقا و بازیابی](redgate/docs/DEPLOYMENT.md)
 - [گزارش بررسی‌ها و روش تکرار تست مرورگر](redgate/docs/VERIFICATION_2.1.0.md)
-- [حالت‌های عملیاتی و گسترش کنترل‌شدهٔ ۲٫۲](redgate/docs/CAPABILITY_MODES.md)
+- [حالت‌های عملیاتی، ترکیب حالت‌ها و گسترش کنترل‌شده](redgate/docs/CAPABILITY_MODES.md)
+- [سطح تهاجمی ۲٫۳: مدل کنترل، ۱۸۳ ابزار، چرخهٔ PoC، نقش‌ها](redgate/docs/OFFENSIVE_SURFACE.md)
+- [ممیزی منبع: چه چیزی از پروژه‌های مرجع آمده و چه چیزی نه](redgate/docs/AUTHORITY_AUDIT.md)
+- [رکورد تأیید زندهٔ ۲٫۳ و ۲٫۳٫۱](redgate/docs/VERIFICATION_2.3.md)
 - [امنیت](redgate/SECURITY.md) · [محدودیت‌ها](redgate/LIMITATIONS.md) · [گردش‌کارهای CI](.github/workflows/verify.yml)
 
 Redstrike با مجوز **MIT**، همراه با اخطار استفادهٔ مجاز درج‌شده در [LICENSE](redgate/LICENSE)، منتشر می‌شود. وابستگی‌ها، ابزارها و مدل‌های مورد استفاده، مجوزهای خود را دارند. اعتبارنامه‌ها، داده‌های ارزیابی و خروجی‌های اجرایی را وارد Git نکنید.
@@ -220,15 +247,17 @@ A language model does not replace asset-owner authorization or an analyst's judg
 - **Script execution controls:** Python, Bash, Go and JavaScript validation, SHA-256 checks and bounded process execution, alongside tool policies, quotas, roles and a two-person approval path where required.
 - **Reporting and operations:** Markdown/JSON exports, hash-chained audit records, WAL-consistent SQLite backups, key rotation and Bash service-management helpers.
 - **Operational modes and governed expansion (2.2):** mission mode declaration, mandatory deep TLS analysis, RoE-clause-bound expansion requests for scope/budget/quota with independent approval, the seven-question evidence gate, an advisory agent-role catalogue and ELF hardening triage.
-- **Governed offensive surface (2.3):** 144 catalogued tools behind a declarative per-tool flag policy, a permissive-in-scope posture with two-person approval reserved for high-impact actions, a PoC lifecycle with independent reproduction, attack chains, recursive discovery with budgeted mass scanning, a bug-bounty workflow, a pwntools layer and 49 advisory agents with hunt loops and an append-only reasoning brain.
+- **Governed offensive surface (2.3):** 183 catalogued tools in 15 families behind a declarative per-tool flag policy, a permissive-in-scope posture with two-person approval reserved for high-impact actions, a PoC lifecycle with independent reproduction, attack chains, recursive discovery with budgeted mass scanning, a bug-bounty workflow, a pwntools layer and 70 advisory agents with hunt loops and an append-only reasoning brain.
+- **Intel engine and coverage ledger (2.3.1):** vulnerability-class ranking with published weights, attack-surface bucketing (P1/P2/P3/Kill), budget allocation, an exhaustion floor, capability-graph chain planning, a pre-submission evidence score and CVSS 3.1 — plus a coverage ledger where "covered" must name a check, and response fingerprinting with diffing.
+- **Mobile, wireless and forensics families (2.3.1):** 9 mobile tools, 14 wireless tools (`requires_root`) and 16 forensics tools whose input is a file or image, never a host.
 
-### New in 2.3: a wide offensive surface, one control model
+### New in 2.3 and 2.3.1: a wide offensive surface, one control model
 
-Version 2.3 makes the platform *capable* of real offensive work — 144 tools across
+Version 2.3 makes the platform *capable* of real offensive work — 183 tools across
 DNS, network, web, injection, TLS, cloud, Active Directory, password, OSINT,
-binary, exploit-search and reporting — while keeping the boundary where 2.1 put
-it: a signed scope, an allowlist, DNS pinning, cloud-metadata denial and an
-append-only audit ledger.
+binary, exploit-search, reporting and, since 2.3.1, **mobile, wireless and
+forensics** — while keeping the boundary where 2.1 put it: a signed scope, an
+allowlist, DNS pinning, cloud-metadata denial and an append-only audit ledger.
 
 The control model is deliberately asymmetric:
 
@@ -243,14 +272,25 @@ A posture decides how much *asking* happens, never *what is reachable*:
 `sqlmap --os-shell`. Timing (`-T4`) is a policy row a mission can opt into;
 capability flags that turn a finding into a compromise stay refused always.
 
-Three parts are deliberately honest about this sandbox: the catalogue lists 144
+Three parts are deliberately honest about this sandbox: the catalogue lists 183
 tools but only four binaries are installed here, `pwntools` is not installed
 (−> `status: unavailable`, never invented output), and bug-bounty sync has no
 credentials (−> scope stays `source: manual`, duplicate checks stay `unverified`).
-Full detail: [redgate/docs/OFFENSIVE_SURFACE.md](redgate/docs/OFFENSIVE_SURFACE.md)
-and [redgate/docs/VERIFICATION_2.3.md](redgate/docs/VERIFICATION_2.3.md).
 
-### New in 2.2: operational modes and a widened — still governed — boundary
+The 2.3.1 families keep exactly the same contract. Unknown flags are refused in
+`build_argv()`; wireless misuse that hurts bystanders (`aireplay-ng --deauth`,
+`mdk4` flood verbs, `eaphammer --hostile-portal`, `adb install`, `frida
+--spawn`) is refused at that layer, not in a document; wireless tooling is marked
+`requires_root`; and forensics/offline-mobile tools take an **artifact path**,
+never a hostname. Verified live: `binwalk`, `apktool` and `volatility3` answer
+`unavailable` with exit 127 and "argv was validated; nothing was executed", while
+`readelf` on a real artifact still completes through the bridge.
+
+Full detail: [redgate/docs/OFFENSIVE_SURFACE.md](redgate/docs/OFFENSIVE_SURFACE.md),
+[redgate/docs/AUTHORITY_AUDIT.md](redgate/docs/AUTHORITY_AUDIT.md) and
+[redgate/docs/VERIFICATION_2.3.md](redgate/docs/VERIFICATION_2.3.md).
+
+### New in 2.2: operational modes and governed expansion
 
 Version 2.2 widens *what a mission may do* without removing a single code-level invariant. A mission can declare an **operational mode**; its host, action and time ceilings come from `config/capabilities.yaml` and are frozen onto the mission:
 
@@ -261,11 +301,14 @@ Version 2.2 widens *what a mission may do* without removing a single code-level 
 | `pentest` | Full authorised engagement | 8 / 64 / 1800 |
 | `ctf` | Challenge solving, no network widening | 4 / 32 / 900 |
 | `assessment` | Configuration and hardening review | 8 / 48 / 1800 |
+| `ssl_tls_analysis` | Transport-only assessment (2.3.1) | 8 / 64 / 1800 |
 
 - **Deep SSL/TLS analysis is mandatory.** Every TLS-bearing mode sweeps the protocol floor (TLS 1.0–1.3), detects weak ciphers, inspects the certificate (expiry, SAN coverage, key size, signature algorithm, trust chain) and HSTS. Each handshake is pinned to a scope-validated IP while keeping the original SNI. Results are stored as immutable, hashed records.
 - **Mid-engagement expansion.** An operator may *request* extra targets, budget, quota or review level. Nothing changes until a **different** person approves. Every request must cite an explicit **RoE clause** declared in `allowlist.yaml`; an engagement without such a clause cannot be widened at all.
 - **Seven-question evidence gate.** A finding is `confirmed` only when all seven questions pass with deterministic, reproducible evidence. Model text alone can never satisfy a blocking question; it produces a `rejected` observation instead.
-- **Advisory agent catalogue.** 21 roles (recon, hunters, chain-builder, devil's advocate, report-writer, …) plan only: they cannot execute a tool, widen scope, approve, or confirm a finding.
+- **Advisory agent catalogue.** 70 roles (recon, class hunters, chain-builder, devil's advocate, analysts, report-writer, …) plan only. Each states the evidence that would refute it, and none can execute a tool, widen scope, approve, or confirm a finding.
+- **Mode composition (2.3.1).** A mission may declare several modes at once (`pentest+ssl_tls_analysis`, or the shorthand `pentest_plus_tls`). Composition widens the permitted capability set and nothing else: the ceiling is the **minimum** of the parts, mandatory obligations are the union and cannot be removed, expansion clauses are **intersected**, at most three parts are allowed, and every part must be on the administrator's allow-list.
+- **Decision engine (2.3.1).** `POST /api/v1/decide/approach` maps observations to prioritised steps. Each step names the `tool:` policy row that governs it, work already in the ledger is reported as `skipped_as_already_run`, and the response is `advisory_only` — the endpoint itself executes nothing.
 - **Restricted binary layer.** For CTF/binary missions, read-only ELF hardening triage (NX, PIE, RELRO, canary, RPATH, W+X segments) runs on the Python standard library. `pwntools` is not imported or invoked, and no exploit generation exists.
 
 **Unchanged invariants:** the `nmap`/`sqlmap` flag blocklists stay in code, cloud-metadata ranges stay denied, the Two-Person Rule is enforced by the database, and script execution still requires static validation plus SHA-256 pinning. No mode or approval can unlock them.
@@ -279,6 +322,7 @@ Version 2.2 widens *what a mission may do* without removing a single code-level 
 | **MCP — Python** | Authenticated internal tool service with constrained inputs |
 | **Runner — Go** | Native HTTP evidence capture and bounded execution of approved scripts |
 | **SQLite** | Engagement data, memory, mission progress, evidence and ledgers, with WAL and additive migrations |
+| **Intel and coverage — Python** | Class ranking, budgeting, chain planning, evidence scoring, CVSS 3.1, coverage ledger and response fingerprinting |
 | **Bash and Docker Compose** | Lifecycle, credentials, backups, packaging and separate control, target-egress and inference networks |
 
 The current deployment model uses **one Gateway process per SQLite database**, not a distributed scheduler. The optional PostgreSQL Compose profile provisions a database service only; it does not change the application's backend.
@@ -327,10 +371,11 @@ Compose publishes only the Gateway port on host loopback and disables demo login
 1. **Define scope:** review authorization, targets, the RoE window, roles, quotas and tool policies.
 2. **Plan:** select an authorized engagement and save a mission with its goal, Skill and finite budgets.
 3. **Start explicitly:** launch the mission and follow its status, progress and exploration trail in the console.
-4. **Review evidence:** inspect findings, headers, permitted previews and graph relationships. Inventory is not tested coverage or proof of security.
-5. **Retest and report:** explicitly repeat supported checks and export Markdown or JSON for human analysis.
+4. **Review evidence:** inspect findings, headers, permitted previews and graph relationships. Inventory is not tested coverage or proof of security — only a check recorded in the coverage ledger counts.
+5. **Prioritise:** rank the next hypotheses (`/intel/classes`), split the remaining budget, and re-check anything whose response fingerprint changed.
+6. **Retest and report:** explicitly repeat supported checks, score the write-up with `/intel/evidence-score`, and export Markdown or JSON for human analysis.
 
-A mission accepts **1–8 hosts**, **1–64 actions** (default 24) and **10–1800 seconds** (default 300). Declaring a 2.2 mode applies that mode's ceiling instead; omitting the mode keeps the legacy 2.1 bounds unchanged. At most **two missions globally and one per owner** execute concurrently. Pausing does not extend the deadline; failed or reserved actions are not refunded.
+A mission accepts **1–8 hosts**, **1–64 actions** (default 24) and **10–1800 seconds** (default 300). Declaring a mode — or a composed mode — applies that ceiling (the minimum of the parts, for a composition) and freezes it onto the mission; omitting the mode keeps the legacy 2.1 bounds unchanged. At most **two missions globally and one per owner** execute concurrently. Pausing does not extend the deadline; failed or reserved actions are not refunded.
 
 ### Local language models
 
@@ -364,7 +409,7 @@ npm ci --ignore-scripts
 ./scripts/start_local.sh
 ```
 
-`verify.sh` runs Bash/ShellCheck, JavaScript syntax/ESLint and interface tests, Go race/vet/build, Ruff and the Python suite. Compose configuration is checked only when the CLI and `.env` are available; this script alone does not establish image build/runtime behavior.
+`verify.sh` runs Bash/ShellCheck, JavaScript syntax/ESLint and interface tests, Go race/vet/build, Ruff and the Python suite. Current state: **294 tests passing** plus three environmental failures (no `shellcheck`/`go`/`eslint` on this image). Compose configuration is checked only when the CLI and `.env` are available; this script alone does not establish image build/runtime behavior.
 
 The local launcher defaults to loopback, `mock` AI and temporary private credentials; it prints the token-file path and does not automatically source `.env`. It is not host isolation. `REDGATE_DEMO_MODE=true` is for private labs only: anyone reaching such a Gateway can obtain a lab identity.
 
@@ -383,9 +428,10 @@ The local launcher defaults to loopback, `mock` AI and temporary private credent
 - [Architecture and data integrity](redgate/docs/ARCHITECTURE.md)
 - [Deployment, backups, upgrades and restoration](redgate/docs/DEPLOYMENT.md)
 - [Verification record and reproducible browser test](redgate/docs/VERIFICATION_2.1.0.md)
-- [2.2 operational modes and governed expansion](redgate/docs/CAPABILITY_MODES.md)
-- [2.3 offensive surface: control model, tools, lifecycle, agents](redgate/docs/OFFENSIVE_SURFACE.md)
-- [2.3 live verification record](redgate/docs/VERIFICATION_2.3.md)
+- [Operational modes, mode composition and governed expansion](redgate/docs/CAPABILITY_MODES.md)
+- [2.3 offensive surface: control model, 183 tools, PoC lifecycle, agents](redgate/docs/OFFENSIVE_SURFACE.md)
+- [Provenance audit: what came from the referenced projects, and what did not](redgate/docs/AUTHORITY_AUDIT.md)
+- [2.3 / 2.3.1 live verification record](redgate/docs/VERIFICATION_2.3.md)
 - [Security](redgate/SECURITY.md) · [Limitations](redgate/LIMITATIONS.md) · [CI workflow](.github/workflows/verify.yml)
 
 Redstrike is distributed under the **MIT License**, with an authorized-use notice in [LICENSE](redgate/LICENSE). Dependencies, tools and models retain their respective licenses. Never commit credentials, engagement data or runtime artifacts to Git.
