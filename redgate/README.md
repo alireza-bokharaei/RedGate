@@ -1,4 +1,4 @@
-# Redstrike 2.1.0 — راهنمای فنی / Technical Guide
+# Redstrike 2.3.1 — راهنمای فنی / Technical Guide
 
 [معرفی پروژه / Project overview](../README.md) · [فارسی](#fa) · [English](#en)
 
@@ -44,7 +44,7 @@ Gateway احراز هویت، مجوز engagement، RoE، محدوده، سهم�
 | `mcp_server/` | پل ابزارهای Python و قراردادهای ورودی/خروجی |
 | `sandbox_runner/` | Runner و جمع‌آورندهٔ بومی HTTP در Go |
 | `config/` | محدوده، نقش‌ها، سیاست ابزار/اسکریپت و تنظیمات مدل |
-| `skills/` | گردش‌کارهای YAML برای بررسی و گزارش |
+| `skills/` | ۲۴ پلی‌بوک YAML اعتبارسنجی‌شده (شکار کلاس‌محور، SAST، بازبینی triage/پوشش/دیف، موبایل/بی‌سیم/فارنزیک) |
 | `scripts/` | راه‌اندازی، مدیریت Docker، اعتبارنامه، مدل و پشتیبان‌گیری |
 | `tests/` | تست‌های Python، Go-integration، JavaScript و مرورگر |
 | `docs/` | معماری، استقرار و گزارش بررسی‌ها |
@@ -56,11 +56,22 @@ Gateway احراز هویت، مجوز engagement، RoE، محدوده، سهم�
 | `config/allowlist.yaml` | اهداف مجاز، بازه و وضعیت engagement و کنترل‌های DNS |
 | `config/operators.yaml` | هویت، نقش، سهمیه، نام متغیر هش توکن و دسترسی به engagement |
 | `config/tool_policy.yaml` | فعال‌بودن، محدودیت و سطح ریسک ابزارها |
+| `config/capabilities.yaml` | مانیفست قابلیت: شش حالت عملیاتی، قواعد ترکیب حالت، سقف‌ها، پروفایل TLS، حدود گسترش و پرسش‌های دروازه |
+| `config/policies.yaml` | مدل کنترل ۲٫۳: سه وضعیت، چهار سیاست دو‌نفره و سطح فلگ هر ابزار |
 | `config/script_policy.yaml` | سیاست اعتبارسنجی و اجرای اسکریپت |
 | `config/llm_proxy.yaml` | تنظیمات اولیهٔ proxy مدل |
 | `config/local_models.yaml` | فهرست و مشخصات مدل‌ها و quantization |
 | `config/Modelfile.redgate` | قالب آماده‌سازی مدل Ollama |
-| `skills/*.yaml` | تعریف مراحل هر Skill |
+| `skills/*.yaml` | ۲۴ پلی‌بوک اعتبارسنجی‌شده (هر کدام ۱ تا ۶ گام محدود) |
+
+ماژول‌های افزوده‌شده در ۲٫۳٫۱:
+
+| ماژول | نقش |
+|---|---|
+| `gateway/intel_engine.py` | رتبه‌بندی کلاس با وزن منتشرشده، سطل‌بندی سطح، تقسیم بودجه، کف خستگی، زنجیرهٔ قابلیت‌محور، امتیاز شواهد، CVSS 3.1 |
+| `gateway/coverage.py` | دفتر پوشش («covered» باید بررسی نام ببرد) و اثرانگشت/دیف پاسخ |
+| `gateway/intel_api.py` | ۱۲ مسیر `/api/v1/intel/*`، `/coverage` و `/responses/*` |
+| `gateway/migrations/006_intel_and_coverage.sql` | جداول `intel_outcomes`، `coverage_records`، `response_fingerprints` |
 
 تنظیمات نمونه را با مجوز واقعی جایگزین کنید. نام نقش به‌تنهایی مجوز دسترسی به engagement نیست. گذر از تأیید انسانی یا داشتن نقش admin، مجوز خروج از محدودهٔ هدف ایجاد نمی‌کند.
 
@@ -69,6 +80,7 @@ Gateway احراز هویت، مجوز engagement، RoE، محدوده، سهم�
 | متغیر | کاربرد |
 |---|---|
 | `REDGATE_DB_PATH` | مسیر SQLite؛ در Compose برابر `/app/data/redgate.db` |
+| `REDGATE_ARTIFACT_DIR` | ریشهٔ مجاز برای بررسی سخت‌سازی فایل‌های باینری (پیش‌فرض `data/artifacts`) |
 | `REDGATE_CONFIG_DIR` / `REDGATE_SKILLS_DIR` | مسیر تنظیمات و Skills |
 | `REDGATE_INTERNAL_TOKEN` | اعتبارنامهٔ ارتباط Gateway با سرویس‌های داخلی |
 | `REDGATE_TOKEN_HASH_*` | هش توکن‌های اپراتور که تنظیمات هویت به آن‌ها ارجاع می‌دهد |
@@ -99,6 +111,62 @@ bootstrap فایل `.env` خصوصی می‌سازد؛ آن را وارد Git ن
 | سایر امکانات | `/skills`، `/memory`، `/models/*`، `/scan`، `/script/*`، `/approvals`، `/allowlist`، `/policies/*` و `/audit/verify`؛ با مجوزهای متناسب هر مسیر |
 
 مسیرهای `/healthz`، `/readyz` و `/api/v1/health` بررسی سرویس و قابلیت‌های نصب‌شده را ارائه می‌کنند؛ آن‌ها را با اجرای ارزیابی اشتباه نگیرید.
+
+### قراردادهای API ۲٫۲
+
+| مسیر | کاربرد |
+|---|---|
+| `GET /api/v1/capabilities` | توصیف حالت‌ها، لایه‌ها، پرسش‌های دروازه و ثابت‌های غیرقابل‌تغییر |
+| `POST /api/v1/session/start` | پروتکل آغاز جلسه: مأموریت، محدوده، RoE، بودجه و وضعیت TLS |
+| `POST /api/v1/capabilities/resolve` | تصمیم مجاز/ممنوع برای هر قابلیت در یک حالت (تک یا ترکیبی) |
+| `POST /api/v1/capabilities/compose` | حل `"pentest+ssl_tls_analysis"` بدون اعلام آن |
+| `POST /api/v1/decide/approach` | برنامهٔ گام بعدی، قطعی و فقط مشورتی |
+| `POST /api/v1/capabilities/toggle` | فعال/غیرفعال‌سازی حالت‌ها (فقط admin) |
+| `POST /api/v1/tls/audit` | تحلیل عمیق TLS روی هدف در محدوده؛ نتیجه تغییرناپذیر و هش‌شده |
+| `GET /api/v1/tls/audits` | فهرست تحلیل‌های TLS یک engagement |
+| `POST /api/v1/expansion/requests` | ثبت درخواست گسترش (هدف/بودجه/سهمیه/سطح بازبینی) |
+| `POST /api/v1/expansion/requests/{id}/decide` | تأیید یا رد توسط فرد دوم |
+| `POST /api/v1/gate/evaluate` | ارزیابی یافته‌ها با دروازهٔ هفت‌پرسشی |
+| `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | کاتالوگ و برنامهٔ مشورتی نقش‌ها |
+| `POST /api/v1/binary/triage` | بررسی فقط‌خواندنی سخت‌سازی ELF (approver/admin) |
+
+### سطح تهاجمی ۲٫۳
+
+مدل کنترل، همان جملهٔ پرامپت است: **وضعیت پیش‌فرض درون محدودهٔ اعلام‌شده اجازه‌دهنده است؛ تأیید دو‌نفره فقط برای اقدام‌های پرتأثیر.**
+
+| وضعیت (posture) | پیش‌فرض | ریسک | رضایت لازم | دو‌نفره |
+|---|---|---|---|---|
+| `posture:permissive_in_scope` | **بله** | medium | operator | خیر |
+| `posture:strict_readonly` | انتخابی (تنگ‌تر) | low | operator | برای هر اقدام غیر‌فقط‌خواندنی |
+| `posture:ctf_aggressive` | انتخابی | high | operator | خیر |
+
+فقط چهار مورد دو‌نفره‌اند: `exploitation:proof_of_concept`، `credential:post_exploitation`، `mass_scan:expanded_budget` و `tool:hydra`. وضعیت هرگز محدوده را گسترش نمی‌دهد: allowlist، پنجرهٔ RoE، pinning روی DNS و مسدودسازی متادیتای ابری در همهٔ وضعیت‌ها اعمال می‌شوند — حتی `ctf_aggressive`.
+
+| مسیر | کاربرد |
+|---|---|
+| `GET /api/v1/offensive/brief` | پروتکل آغاز جلسه: مأموریت، محدوده، RoE و بودجهٔ باقی‌مانده، وضعیت TLS، لایه‌ها و محدودیت‌ها |
+| `GET/POST /api/v1/offensive/policy` · `/posture` · `/consent` | مشاهده و تنظیم وضعیت و ثبت رضایت هش‌شده |
+| `POST /api/v1/offensive/decide` | «اجازه دارم این را اجرا کنم؟» بدون اجرا |
+| `GET /api/v1/offensive/tools` · `POST /tools/run` | ۱۸۳ ابزار کاتالوگ در ۱۵ خانواده + زیرمجموعهٔ واقعاً نصب‌شده |
+| `POST /api/v1/offensive/findings` … `/{id}/verify` | چرخهٔ PoC با تأیید مستقل |
+| `POST /api/v1/offensive/chains` | زنجیرهٔ حمله فقط از یافته‌های تأییدشده |
+| `POST /api/v1/offensive/explore/discover` … `/mass-scan` | کشف بازگشتی و بودجهٔ اسکن انبوه |
+| `POST /api/v1/offensive/bounty/…` | دامنهٔ برنامه، بررسی تکراری، پیش‌نویس گزارش |
+| `GET /api/v1/offensive/agents` · `POST /loops` · `GET /brain` | ۷۰ نقش مشورتی، حلقهٔ شکار با دروازهٔ هفت‌پرسشی، حافظهٔ فقط‌افزودنی |
+
+### مسیرهای ۲٫۳٫۱ — intel، پوشش و دیف پاسخ
+
+| مسیر | کاربرد |
+|---|---|
+| `POST /api/v1/intel/classes` · `/surface` · `/budget` | رتبه‌بندی کلاس‌ها با وزن‌های منتشرشده، سطل‌بندی P1/P2/P3/Kill، تقسیم بودجه |
+| `POST /api/v1/intel/exhaustion` · `/chain` | آیا این کلاس را می‌توان بست؟ گام بعدی از قابلیت‌های اثبات‌شده چیست؟ |
+| `POST /api/v1/intel/evidence-score` | دروازهٔ پیش از ارسال گزارش: شکاف‌های نام‌برده‌شده و تصمیم ارسال |
+| `POST /api/v1/intel/cvss` | امتیاز پایهٔ CVSS v3.1؛ بردارهای v2/v3.0/v4.0 رد می‌شوند، نه تقریب |
+| `POST/GET /api/v1/intel/outcomes` | نتایج شکار فقط‌افزودنی — تنها ورودی یادگیرندهٔ رتبه‌بندی |
+| `POST/GET/DELETE /api/v1/coverage` | دفتر پوشش؛ «covered» باید یک بررسی را نام ببرد و سطح بدون رکورد `uncovered` است |
+| `POST /api/v1/responses/observe` · `GET /responses/diff` · `/history` | اثرانگشت پاسخ (شکل، نه بدنه) و دیف دو مشاهدهٔ آخر |
+
+سه نکتهٔ صداقت که باید بدانید: کاتالوگ ۱۸۳ ابزار دارد ولی روی تصویر مرجع فقط چهار باینری نصب است و اجرای بقیه `status: unavailable` با argv معتبر برمی‌گرداند؛ `pwntools` نصب نیست و لایهٔ آن صریحاً `unavailable` گزارش می‌دهد (بدون جعل خروجی)؛ و همگام‌سازی Bug Bounty بدون اعتبارنامهٔ پلتفرم انجام نمی‌شود، پس دامنهٔ دستی‌وارد‌شده همیشه `source: manual` است و بررسی تکراری محلی در بهترین حالت `unverified` می‌ماند. جزئیات کامل در [docs/OFFENSIVE_SURFACE.md](docs/OFFENSIVE_SURFACE.md) و تأیید زنده در [docs/VERIFICATION_2.3.md](docs/VERIFICATION_2.3.md).
 
 ### بودجه، شواهد و بازآزمایی
 
@@ -185,7 +253,7 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `mcp_server/` | Python tool bridge and input/output contracts |
 | `sandbox_runner/` | Go Runner and native HTTP collector |
 | `config/` | Scope, roles, tool/script policies and model configuration |
-| `skills/` | YAML assessment/reporting pipelines |
+| `skills/` | 24 validated YAML playbooks (hunting classes, SAST, triage/coverage/diff review, mobile/wireless/forensics) |
 | `scripts/` | Startup, Docker lifecycle, credentials, model setup and backups |
 | `tests/` | Python, Go-integration, JavaScript and browser tests |
 | `docs/` | Architecture, deployment and verification records |
@@ -197,11 +265,22 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `config/allowlist.yaml` | Authorized targets, engagement windows/status and DNS controls |
 | `config/operators.yaml` | Identity, role, quota, token-hash environment names and engagement access |
 | `config/tool_policy.yaml` | Tool availability, limits and risk levels |
+| `config/capabilities.yaml` | Capability manifest: six operational modes, mode composition rules, ceilings, TLS profile, expansion limits and evidence-gate questions |
+| `config/policies.yaml` | 2.3 control model: three postures, the four two-person policies, and the per-tool flag surface |
 | `config/script_policy.yaml` | Script validation/execution policy |
 | `config/llm_proxy.yaml` | Initial model-proxy settings |
 | `config/local_models.yaml` | Model catalog and quantization metadata |
 | `config/Modelfile.redgate` | Ollama model-preparation template |
-| `skills/*.yaml` | Skill step definitions |
+| `skills/*.yaml` | 24 validated skill playbooks (1-6 bounded steps each) |
+
+Modules added in 2.3.1:
+
+| Module | Role |
+|---|---|
+| `gateway/intel_engine.py` | Class ranking with published weights, surface bucketing, budget split, exhaustion floor, capability-graph chain planning, evidence scoring, CVSS 3.1 |
+| `gateway/coverage.py` | Coverage ledger ("covered" must name a check) and response fingerprint diffing |
+| `gateway/intel_api.py` | The 12 `/api/v1/intel/*`, `/coverage` and `/responses/*` routes |
+| `gateway/migrations/006_intel_and_coverage.sql` | `intel_outcomes`, `coverage_records`, `response_fingerprints` |
 
 Replace sample settings with your actual authorization. A role name alone does not grant engagement access. Human approval or an admin role does not authorize out-of-scope target contact.
 
@@ -210,6 +289,7 @@ Replace sample settings with your actual authorization. A role name alone does n
 | Variable | Purpose |
 |---|---|
 | `REDGATE_DB_PATH` | SQLite path; `/app/data/redgate.db` in Compose |
+| `REDGATE_ARTIFACT_DIR` | Only directory tree readable by binary hardening triage (default `data/artifacts`) |
 | `REDGATE_CONFIG_DIR` / `REDGATE_SKILLS_DIR` | Configuration and Skill directories |
 | `REDGATE_INTERNAL_TOKEN` | Gateway-to-internal-service credential |
 | `REDGATE_TOKEN_HASH_*` | Operator-token hashes referenced by identity configuration |
@@ -240,6 +320,74 @@ Interactive schemas are available at **`/docs`**. Workspace routes below require
 | Other features | `/skills`, `/memory`, `/models/*`, `/scan`, `/script/*`, `/approvals`, `/allowlist`, `/policies/*` and `/audit/verify`, subject to each route's permissions |
 
 `/healthz`, `/readyz` and `/api/v1/health` provide service checks and installed capabilities; they do not execute an assessment.
+
+### 2.2 API contracts
+
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/capabilities` | Describe modes, layers, gate questions and invariants |
+| `POST /api/v1/session/start` | Session-start protocol: mission, scope, RoE, budget and TLS status |
+| `POST /api/v1/capabilities/resolve` | Allow/deny decision per capability in a mode (single or composed) |
+| `POST /api/v1/capabilities/compose` | Resolve `"pentest+ssl_tls_analysis"` without declaring it |
+| `POST /api/v1/decide/approach` | Deterministic, advisory next-step plan for a target |
+| `POST /api/v1/capabilities/toggle` | Enable/disable modes (admin only) |
+| `POST /api/v1/tls/audit` | Deep TLS analysis of an in-scope target; immutable, hashed record |
+| `GET /api/v1/tls/audits` | Engagement-scoped TLS audit history |
+| `POST /api/v1/expansion/requests` | Submit a scope/budget/quota/privilege expansion request |
+| `POST /api/v1/expansion/requests/{id}/decide` | Independent approval or rejection |
+| `POST /api/v1/gate/evaluate` | Evaluate findings against the seven-question gate |
+| `GET /api/v1/agents/roles` · `POST /api/v1/agents/plan` | Advisory role catalogue and plan |
+| `POST /api/v1/binary/triage` | Read-only ELF hardening triage (approver/admin) |
+
+### 2.3 offensive surface
+
+The control model is the prompt's sentence, implemented literally: **the default
+posture is permissive within the declared scope; two-person approval applies only
+to high-impact actions.**
+
+| Posture | Default | Risk | Consent | Two-person |
+|---|---|---|---|---|
+| `posture:permissive_in_scope` | **yes** | medium | operator | no |
+| `posture:strict_readonly` | opt-in narrowing | low | operator | anything not read-only |
+| `posture:ctf_aggressive` | opt-in | high | operator | no |
+
+Only four actions need two people: `exploitation:proof_of_concept`,
+`credential:post_exploitation`, `mass_scan:expanded_budget` and `tool:hydra`. A
+posture never widens reach: the allowlist, RoE window, DNS pinning and
+cloud-metadata denial hold in every posture, including `ctf_aggressive`.
+
+| Route | Purpose |
+|---|---|
+| `GET /api/v1/offensive/brief` | Session Start Protocol: mission, scope, RoE + remaining budget, TLS status, layers, restrictions |
+| `GET/POST /api/v1/offensive/policy` · `/posture` · `/consent` | Inspect posture, set it (approver only), record hashed consent |
+| `POST /api/v1/offensive/decide` | "May I run this?" without running it |
+| `GET /api/v1/offensive/tools` · `POST /tools/run` | The 183-tool catalogue (15 families incl. mobile, wireless, forensics) and the honestly-installed subset |
+| `POST /api/v1/offensive/findings` … `/{id}/verify` | PoC lifecycle with independent reproduction |
+| `POST /api/v1/offensive/chains` | Attack chains from verified findings only |
+| `POST /api/v1/offensive/explore/discover` … `/mass-scan` | Recursive discovery and budgeted mass scanning |
+| `POST /api/v1/offensive/bounty/…` | Program scope, duplicate checks, report drafts |
+| `GET /api/v1/agents` · `POST /loops` · `GET /brain` | 70 advisory roles, 7-Question-Gate hunt loops, append-only brain |
+
+### 2.3.1 — intel, coverage and response diffing
+
+| Route | Purpose |
+|---|---|
+| `POST /api/v1/intel/classes` · `/surface` · `/budget` | Rank vulnerability classes with published weights, bucket endpoints P1/P2/P3/Kill, split a budget |
+| `POST /api/v1/intel/exhaustion` · `/chain` | May this class be closed? What is the next escalation from proven capabilities? |
+| `POST /api/v1/intel/evidence-score` | Pre-submission report gate: named gaps, `submit` / `submit_with_gaps` / `do_not_submit` |
+| `POST /api/v1/intel/cvss` | CVSS v3.1 base score; v2, v3.0 and v4.0 vectors are refused, not approximated |
+| `POST/GET /api/v1/intel/outcomes` | Append-only hunt outcomes — the only adaptive input to a ranking |
+| `POST/GET/DELETE /api/v1/coverage` | Coverage ledger; a `covered` surface must name a check, unrecorded surfaces report as uncovered |
+| `POST /api/v1/responses/observe` · `GET /responses/diff` · `/history` | Response fingerprints (shape, not body) and a diff of the last two observations |
+
+Three honesty notes: the catalogue has 183 entries but only four binaries are
+installed on the reference image, and a missing binary returns
+`status: unavailable` with the validated argv rather than invented output;
+`pwntools` is not installed, so that layer reports `unavailable` explicitly;
+and bug-bounty sync needs platform credentials, so a hand-entered scope stays
+`source: manual` and a local duplicate check stays `unverified`. Full detail in
+[docs/OFFENSIVE_SURFACE.md](docs/OFFENSIVE_SURFACE.md); live evidence in
+[docs/VERIFICATION_2.3.md](docs/VERIFICATION_2.3.md).
 
 ### Budgets, evidence and retests
 
