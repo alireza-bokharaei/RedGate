@@ -59,6 +59,17 @@ CATEGORIES: dict[str, tuple[str, ...]] = {
                "strings", "nm", "gdb", "ltrace", "strace", "patchelf", "pwntools"),
     "web_search": ("searchsploit", "exploitdb-sync", "cve-search", "nvd-lookup"),
     "reporting": ("pandoc", "markdown-link-check", "sarif-validate"),
+    # 2.3.1: mobile, wireless and forensics were named by the referenced surfaces
+    # and absent from the catalogue. They are ordinary governed entries: unknown
+    # flags refused, unavailable binaries reported "unavailable", never faked.
+    "mobile": ("adb", "frida", "objection", "apktool", "jadx", "mobsf",
+               "drozer", "aapt", "class-dump"),
+    "wireless": ("airmon-ng", "airodump-ng", "aireplay-ng", "aircrack-ng", "wifite",
+                 "bettercap", "kismet", "reaver", "bully", "hostapd-wpe", "mdk4",
+                 "wash", "eaphammer", "pixiewps"),
+    "forensics": ("volatility", "volatility3", "binwalk", "bulk_extractor", "foremost",
+                  "scalpel", "sleuthkit", "fls", "icat", "autopsy", "photorec",
+                  "testdisk", "dc3dd", "guymager", "regripper", "usn-journal-parser"),
 }
 
 # Flags that are refused for the named tool even if a policy row lists them.
@@ -75,6 +86,16 @@ BASELINE_REFUSED_FLAGS: dict[str, tuple[str, ...]] = {
     "masscan": ("--adapter-ip", "--adapter-mac", "--router-mac", "--source-ip"),
     "hping3": ("--flood", "--rand-source", "--spoof", "-a"),
     "responder": ("-I", "-i"),
+    # Wireless: monitor-mode injection and deauth floods are the classic way to
+    # hurt bystanders' traffic, so they stay refused regardless of policy.
+    "aireplay-ng": ("--deauth", "-0", "--interactive", "-9"),
+    "mdk4": ("m", "d", "a", "b"),
+    "hostapd-wpe": (),
+    "eaphammer": ("--hostile-portal", "--capture-essid", "--wpa3-transition"),
+    # Mobile: silent app installation and live instrumentation of a device the
+    # operator may not own are refused at the builder, not in a doc.
+    "adb": ("install", "uninstall", "root", "remount", "push", "pull", "reboot", "sideload"),
+    "frida": ("--spawn", "-f", "-U"),
 }
 
 
@@ -286,6 +307,69 @@ _CATALOG_ROWS: list[CatalogEntry] = [
     _e("pandoc", "reporting", "pandoc", "Report format conversion", "low", offline=True),
     _e("markdown-link-check", "reporting", "markdown-link-check", "Validate report links", "low"),
     _e("sarif-validate", "reporting", "sarif-validate", "Validate SARIF output", "low", offline=True),
+    # ---------------- mobile (authorised app assessment) ----------------
+    # Everything here takes a *local artifact* (an APK/IPA already in the
+    # artifact root) or an explicitly listed device, never an arbitrary host.
+    _e("adb", "mobile", "adb", "Android device bridge: device inventory and logcat", "medium"),
+    _e("frida", "mobile", "frida", "Dynamic instrumentation of a listed process", "high"),
+    _e("objection", "mobile", "objection", "Runtime mobile exploration on a listed device", "high",
+       needs_pip=True),
+    _e("apktool", "mobile", "apktool", "APK decode/rebuild (manifest and resources)", "low",
+       offline=True),
+    _e("jadx", "mobile", "jadx", "Dex-to-Java decompilation", "low", offline=True),
+    _e("mobsf", "mobile", "mobsf", "Local MobSF static/dynamic scan of an artifact", "medium"),
+    _e("drozer", "mobile", "drozer", "Android attack-surface enumeration via agent", "medium",
+       needs_pip=True),
+    _e("aapt", "mobile", "aapt", "APK manifest and permission dump", "low", offline=True),
+    _e("class-dump", "mobile", "class-dump", "Objective-C class metadata from a Mach-O", "low",
+       offline=True),
+    # ---------------- wireless (authorised RF engagement) ----------------
+    _e("airmon-ng", "wireless", "airmon-ng", "Monitor-mode interface inventory", "medium",
+       requires_root=True),
+    _e("airodump-ng", "wireless", "airodump-ng", "Passive capture inventory", "medium",
+       requires_root=True),
+    _e("aireplay-ng", "wireless", "aireplay-ng", "Frame injection (deauth refused)", "high",
+       requires_root=True),
+    _e("aircrack-ng", "wireless", "aircrack-ng", "Offline capture key recovery", "medium",
+       offline=True),
+    _e("wifite", "wireless", "wifite", "Assisted wireless audit driver", "high",
+       requires_root=True),
+    _e("bettercap", "wireless", "bettercap", "MITM/802.11 assessment framework", "high",
+       requires_root=True),
+    _e("kismet", "wireless", "kismet", "Passive wireless survey", "medium", requires_root=True),
+    _e("reaver", "wireless", "reaver", "WPS PIN audit", "high", requires_root=True),
+    _e("bully", "wireless", "bully", "WPS PIN audit (alternate)", "high", requires_root=True),
+    _e("hostapd-wpe", "wireless", "hostapd-wpe", "Rogue AP for EAP credential capture", "high",
+       requires_root=True),
+    _e("mdk4", "wireless", "mdk4", "802.11 fuzzing (flood verbs refused)", "high",
+       requires_root=True),
+    _e("wash", "wireless", "wash", "WPS-enabled AP discovery", "medium", requires_root=True),
+    _e("eaphammer", "wireless", "eaphammer", "EAP-based rogue AP assessment", "high",
+       requires_root=True),
+    _e("pixiewps", "wireless", "pixiewps", "Offline WPS pixie-dust recovery", "medium",
+       offline=True),
+    # ---------------- forensics (post-engagement evidence work) ----------------
+    _e("volatility", "forensics", "volatility", "Memory image analysis (v2 CLI)", "low",
+       offline=True, needs_pip=True),
+    _e("volatility3", "forensics", "vol.py", "Memory image analysis (v3 CLI)", "low",
+       offline=True, needs_pip=True),
+    _e("binwalk", "forensics", "binwalk", "Firmware/file signature carving", "low", offline=True),
+    _e("bulk_extractor", "forensics", "bulk_extractor", "Stream carving for artefacts", "low",
+       offline=True),
+    _e("foremost", "forensics", "foremost", "File carving by header/footer", "low", offline=True),
+    _e("scalpel", "forensics", "scalpel", "Configurable file carving", "low", offline=True),
+    _e("sleuthkit", "forensics", "icat", "Disk image file extraction (TSK suite)", "low",
+       offline=True),
+    _e("fls", "forensics", "fls", "List filesystem entries in an image", "low", offline=True),
+    _e("icat", "forensics", "icat", "Extract a file by inode from an image", "low", offline=True),
+    _e("autopsy", "forensics", "autopsy", "Autopsy CLI case ingestion", "low", offline=True),
+    _e("photorec", "forensics", "photorec", "Photo/file recovery from an image", "low", offline=True),
+    _e("testdisk", "forensics", "testdisk", "Partition recovery/analysis", "medium", offline=True),
+    _e("dc3dd", "forensics", "dc3dd", "Forensically-sound imaging", "low", offline=True),
+    _e("guymager", "forensics", "guymager", "Acquisition front-end (CLI absent is honest)", "low",
+       offline=True),
+    _e("regripper", "forensics", "rip.pl", "Windows registry hive parsing", "low", offline=True),
+    _e("usn-journal-parser", "forensics", "usn.py", "USN journal parsing", "low", offline=True),
 ]
 
 CATALOG: dict[str, CatalogEntry] = {entry.name: entry for entry in _CATALOG_ROWS}
@@ -357,7 +441,9 @@ def takes_artifact(entry: CatalogEntry) -> bool:
     error, and treating it as a scope-checked network target would be worse: it
     would imply the tool reaches the network when it never does.
     """
-    return entry.category == "binary"
+    return entry.category in {"binary", "forensics"} or (
+        entry.category == "mobile" and entry.offline
+    )
 
 
 class ArgvBuildError(ValueError):

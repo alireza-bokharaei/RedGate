@@ -495,7 +495,7 @@ class MissionService:
             return html.escape(str(value)).replace("|", "\\|").replace("\n", " ").replace("`", "'")
 
         lines = [
-            f"# Redstrike 2.3.0 — {safe(mission['name'])}",
+            f"# Redstrike 2.3.1 — {safe(mission['name'])}",
             "",
             f"- Mission: `{mission['mission_id']}`",
             f"- Engagement: `{safe(mission['engagement_id'])}`",

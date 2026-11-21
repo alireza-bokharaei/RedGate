@@ -1,4 +1,4 @@
-# Limitations and Operational Boundaries — 2.3.0
+# Limitations and Operational Boundaries — 2.3.1
 
 ## 2.3 offensive surface limits
 

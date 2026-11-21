@@ -1,15 +1,15 @@
-# Redstrike 2.3.0 — governed capability modes, internal tools, bounded Go runner.
+# Redstrike 2.3.1 — governed capability modes, internal tools, bounded Go runner.
 # ./scripts/bootstrap_env.sh && ./scripts/redgate.sh up
 # REDGATE_IMAGE_FLAVOR=lite ./scripts/redgate.sh up  (no Go/JS adapters)
 services:
   gateway:
-    image: redgate/gateway:${REDGATE_VERSION:-2.3.0}-${REDGATE_IMAGE_FLAVOR:-full}
+    image: redgate/gateway:${REDGATE_VERSION:-2.3.1}-${REDGATE_IMAGE_FLAVOR:-full}
     build:
       context: .
       dockerfile: gateway/Dockerfile
       target: ${REDGATE_IMAGE_FLAVOR:-full}
       args:
-        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.0}
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.1}
     init: true
     restart: unless-stopped
     stop_grace_period: 35s
@@ -61,12 +61,12 @@ services:
     networks: [control_net, llm_egress_net]
 
   mcp-server:
-    image: redgate/mcp-server:${REDGATE_VERSION:-2.3.0}
+    image: redgate/mcp-server:${REDGATE_VERSION:-2.3.1}
     build:
       context: .
       dockerfile: mcp_server/Dockerfile
       args:
-        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.0}
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.1}
     init: true
     restart: unless-stopped
     # No published port: this authenticated tool bridge is internal only.
@@ -85,13 +85,13 @@ services:
     networks: [control_net, target_egress_net]
 
   sandbox-runner:
-    image: redgate/sandbox-runner:${REDGATE_VERSION:-2.3.0}-${REDGATE_IMAGE_FLAVOR:-full}
+    image: redgate/sandbox-runner:${REDGATE_VERSION:-2.3.1}-${REDGATE_IMAGE_FLAVOR:-full}
     build:
       context: .
       dockerfile: sandbox_runner/Dockerfile
       target: ${REDGATE_IMAGE_FLAVOR:-full}
       args:
-        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.0}
+        REDGATE_VERSION: ${REDGATE_VERSION:-2.3.1}
     init: true
     restart: unless-stopped
     stop_grace_period: 15s

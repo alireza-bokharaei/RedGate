@@ -76,7 +76,7 @@ Reproduce with `.arena/live_run.sh` (gitignored scratch launcher) and
 
 ## Binary tooling through the live bridge
 
-With a real MCP service on `:8001` (`catalog_size: 144`, 12 groups) and a copy of
+With a real MCP service on `:8001` (`catalog_size: 183`, 15 groups) and a copy of
 `/bin/true` at `.arena/artifacts/vuln.elf`:
 
 | Call | Result |
@@ -107,6 +107,40 @@ The important negative result is step 44: a composition cannot exceed three
 parts, the narrowest ceiling always wins, and no combination can drop
 `tls_deep_analysis`.
 
+## Widened catalogue, intel engine, coverage, diffing (2.3.1)
+
+Run against the same live ledger (`ENG-2026-001`) with the MCP bridge on `:8001`.
+
+| Step | Request | Result |
+|---|---|---|
+| 52 | `GET /offensive/tools` | `count 183`; `mobile: 9`, `wireless: 14`, `forensics: 16`; only four binaries installed |
+| 53 | `POST /tools/run` `binwalk` → `firmware.bin` | `status: unavailable`, `exit 127`, *"Binary 'binwalk' is not installed… argv was validated; nothing was executed"* |
+| 54 | `POST /tools/run` `adb` with `flags:["install"]` | **422** `'adb install' is refused by policy` — refused before consent, not after |
+| 55 | `POST /tools/run` `readelf` → `vuln.elf` (real bridge) | `status: completed`, `exit 0` (artifact contract still holds with 39 new entries) |
+| 56 | `POST /intel/classes` `{spa, forms, api_listing, jwt}` + ROI | `xss 1.33`, `idor 1.09`, `auth_bypass 0.82`; every class carries `terms` and `reasons` |
+| 57 | `POST /intel/outcomes` `idor=confirmed` then re-rank | `idor` rises to `1.13` with *"1 confirmed outcome(s) on this engagement"* |
+| 58 | `POST /intel/budget` 90 min / 90k tokens | 67/22 min split, `unallocated` reported honestly |
+| 59 | `POST /intel/cvss` `AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H` | `9.8 critical`; v4.0 vector → **422** `CVSS v4.0 is not scored here` |
+| 60 | `POST /intel/exhaustion` `{attempts:1}` | `ok: false`, *"not exhausted: attempts 1/3, evidence_items 0/2…"* |
+| 61 | `POST /intel/chain` `[db_read]` | `db_read → auth_bypass`, `terminal_impact: critical` |
+| 62 | `POST /intel/evidence-score` (thin finding) | `submit_with_gaps`, `failed: [remediation_stated, independent_reproduction]` |
+| 63 | `POST /coverage` without `checks` | **422** `A covered surface must name at least one check it performed.` |
+| 64 | `POST /coverage` with `checks`, then `GET ?expected=a,b` | `counts.covered 1`, `uncovered: ["https://b.example"]`, `coverage_ratio 0.5` |
+| 65 | two `POST /responses/observe`, then `GET /responses/diff` | `changed: true`, `strict-transport-security max-age=100 → null`, interpretation *"only headers changed — check security-header regressions"* |
+
+Step 53 and step 55 are the pair that matters: the new families are not
+simulated. An installed binary runs; an uninstalled one is `unavailable`.
+
+**Bug found during this run.** `POST /intel/classes` returned a 500 because the
+handler read a `payload_json` column from `brain_entries`, which has
+(`kind`, `content`, `verdict`). Fixed by reading the real columns and accepting a
+brain signal only when the row names a class **and** carries a
+`supported`/`refuted` verdict; regression test
+`test_a_refuted_brain_verdict_reaches_the_ranking_through_the_db`.
+`CoverageLedger.record` had the same class of bug (`checks_json` re-read after
+`get()` had already normalised it to `checks`) — fixed, covered by
+`test_coverage_upserts_and_merges_checks`.
+
 ## Two bugs found and fixed during this run
 
 1. `POST /bounty/reports` with a non-existent `check_id` returned **500** via an
@@ -129,7 +163,8 @@ parts, the narrowest ceiling always wins, and no combination can drop
 ```
 tests/test_offensive_surface.py                                71 passed
 tests/test_mode_composition.py                                 23 passed
-tests/ (minus e2e / agent_v2 / collector)                     255 passed, 3 environmental failures
+tests/test_intel_and_coverage.py                               39 passed
+tests/ (minus e2e / agent_v2 / collector)                     293 passed, 3 environmental failures
 ruff check .                                                   clean
 ```
 

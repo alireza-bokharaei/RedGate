@@ -1,6 +1,6 @@
 # Offensive Surface — 2.3
 
-2.3 implements the expanded architecture: a **wide tool surface** (144 catalogued
+2.3 implements the expanded architecture: a **wide tool surface** (183 catalogued
 tools), **49 advisory agent roles**, a **persistent reasoning brain**, **recursive
 discovery**, a **bug-bounty workflow**, an **exploitation lifecycle**, and a
 **pwntools layer** — all still behind one Gateway, one audit ledger, and one
@@ -112,13 +112,26 @@ still has to pass scope, argv, consent and policy through `/offensive/tools/run`
 
 ---
 
-## 3. Tool execution — 144 tools, deny-by-default argv
+## 3. Tool execution — 183 tools, deny-by-default argv
 
-`mcp_server/catalog.py` registers 144 tools in 12 categories:
+`mcp_server/catalog.py` registers 183 tools in 15 categories:
 
-| dns | network | web | injection | tls | cloud | ad | password | osint | binary | web_search | reporting |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| 14 | 18 | 41 | 5 | 5 | 10 | 12 | 7 | 12 | 13 | 4 | 3 |
+| dns | network | web | injection | tls | cloud | ad | password | osint | binary | web_search | reporting | mobile | wireless | forensics |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| 14 | 18 | 41 | 5 | 5 | 10 | 12 | 7 | 12 | 13 | 4 | 3 | 9 | 14 | 16 |
+
+The last three families were added in 2.3.1 for the surfaces the brief names:
+authorised **mobile** app assessment (`adb frida objection apktool jadx mobsf
+drozer aapt class-dump`), **wireless** survey and WPS/EAP testing (`airmon-ng
+airodump-ng aireplay-ng aircrack-ng wifite bettercap kismet reaver bully
+hostapd-wpe mdk4 wash eaphammer pixiewps`) and **forensics** image/firmware work
+(`volatility volatility3 binwalk bulk_extractor foremost scalpel sleuthkit fls
+icat autopsy photorec testdisk dc3dd guymager regripper usn-journal-parser`).
+They are ordinary governed entries, with three extra refusals seeded for the
+families where misuse hurts bystanders: `aireplay-ng --deauth/-0`, `mdk4`'s
+flood verbs, `eaphammer`'s hostile-portal/capture flags, `adb install/push/root`
+and `frida --spawn/-U`. Wireless tools are marked `requires_root`; forensics and
+offline mobile tools take an **artifact**, never a host.
 
 Each tool's flag surface is a **policy row** (`config/policies.yaml`, `tools:`),
 not a hardcoded list. `build_argv()` refuses anything not explicitly allowed, and
@@ -171,7 +184,7 @@ Execution order (`gateway/scan_runner.py`), each step able to refuse:
 
 ```json
 {
-  "count": 144,
+  "count": 183,
   "installed_on_this_image": {"readelf": "/usr/bin/readelf", "objdump": "…"}
 }
 ```
@@ -372,6 +385,18 @@ POST /api/v1/offensive/loops/{id}/iterate | /kill | /gate
 GET  /api/v1/offensive/brain       POST /api/v1/offensive/brain
 GET  /api/v1/offensive/brief             Session Start Protocol
 
+POST /api/v1/intel/classes                rank vulnerability classes (weights visible)
+POST /api/v1/intel/surface                bucket endpoints P1/P2/P3/Kill
+POST /api/v1/intel/budget                 split minutes/tokens by rank score
+POST /api/v1/intel/exhaustion             may this class be closed?
+POST /api/v1/intel/chain                  next bug from proven capabilities
+POST /api/v1/intel/evidence-score         pre-submission report gate
+POST /api/v1/intel/cvss                   CVSS v3.1 base score (v4 refused)
+POST /api/v1/intel/outcomes   GET ...      append-only hunt outcomes
+POST /api/v1/coverage  GET  DELETE         coverage ledger (unrecorded = uncovered)
+POST /api/v1/responses/observe             store a response fingerprint
+GET  /api/v1/responses/diff   /history     what changed between observations
+
 GET  /api/v1/capabilities                 modes, layers, composition, gate, TLS profile
 POST /api/v1/capabilities/compose         resolve "a+b" without declaring it
 POST /api/v1/capabilities/resolve         per-capability decision for a mode (or composed mode)
@@ -382,6 +407,52 @@ POST /api/v1/session/start                declare a session against a (composed)
 Every refusal is written to `audit_log` before the HTTP error is returned, so an
 attempted widening is visible even when it is denied. `/api/v1/audit/verify`
 checks the hash chain independently.
+
+---
+
+## 9a. Intel engine, coverage ledger and response diffing
+
+Three pieces that turn "we tested it" into something a reviewer can check. They
+do not execute tools and cannot promote a finding; see
+[AUTHORITY_AUDIT.md](AUTHORITY_AUDIT.md) for the full mapping and provenance.
+
+**Ranking (`POST /api/v1/intel/{classes,surface,budget,chain,evidence-score,cvss}`)**
+
+* `classes` scores 17 vulnerability classes from fixed, published weights over
+  the caller's signals, program ROI, brain verdicts and recorded outcomes. Every
+  response carries the per-term contribution, so a ranking can be argued with.
+* `surface` buckets endpoints `P1/P2/P3/Kill` from declared traits.
+* `budget` splits minutes/tokens proportionally to rank score; a class at zero
+  receives nothing.
+* `exhaustion` refuses to close a class without `attempts >= 3`,
+  `evidence_items >= 2`, `variants_tried >= 2` and no open anomaly.
+* `chain` walks a **capability** graph (`db_read → auth_bypass → …`), so the next
+  hypothesis is an escalation rather than another scan.
+* `evidence-score` is the pre-submission gate (reproduction, request/response,
+  impact, remediation, scope attestation, redaction, independent reproduction)
+  and returns named gaps plus `do_not_submit` / `submit_with_gaps` / `submit`.
+* `cvss` computes a **v3.1** base score with the Appendix-A round-up and
+  **refuses** v2, v3.0 and v4.0 vectors instead of approximating them.
+
+The only adaptive input is the append-only `intel_outcomes` table
+(`POST /api/v1/intel/outcomes`); a ranking is otherwise a pure function of the
+request. Brain entries count only when the row carries both a class and a
+`supported`/`refuted` verdict.
+
+**Coverage (`POST/GET/DELETE /api/v1/coverage`)**
+
+`coverage_records` is keyed `(engagement, surface)` and upserts. Two rules are
+enforced in code: a `covered` record **must** name at least one check performed,
+and a `skipped` record **must** state why. `summary()` takes the declared surface
+list and returns every surface with no record as `uncovered`; the ratio is
+computed against `expected ∪ recorded`, so silence is never coverage.
+
+**Response diffing (`POST /api/v1/responses/observe`, `GET /responses/{diff,history}`)**
+
+A fingerprint stores the *shape* of a response — digits collapsed, whitespace
+collapsed, volatile headers (`Date`, `Set-Cookie`, `ETag`, `CF-Ray`, …) dropped —
+plus the raw title hash. `diff` compares the two most recent observations and
+names the changed fields and headers, ending with who has to re-verify.
 
 ---
 

@@ -847,8 +847,11 @@ def test_gate_result_is_written_to_the_brain(ws):
 
 
 def test_roster_is_inside_the_prompt_range(ws):
+    # 2.3 shipped 49 roles; 2.3.1 added 21 hunting/review roles for the surfaces the
+    # referenced rosters cover. The bound moves with the roster, and every added
+    # role must still be advisory (asserted below).
     roster = ws.rt.loops.roster()
-    assert 48 <= roster["count"] <= 50
+    assert 70 <= roster["count"] <= 80
     assert len(roster["phases"]) >= 8
     assert all(role["can_execute"] is False for role in roster["roles"])
     assert all(role["can_approve"] is False for role in roster["roles"])
@@ -1080,7 +1083,7 @@ def test_healthz_lists_the_new_features(ws):
     # The runtime is already built by the fixture; assert on the feature map the
     # health endpoint composes.
     assert ws.rt.pwntools.availability()["available"] in (True, False)
-    assert len(ws.rt.loops.roster()["roles"]) == 49
+    assert len(ws.rt.loops.roster()["roles"]) == 70
     assert ws.rt.policies.posture(ENG).policy_id == "posture:permissive_in_scope"
 
 

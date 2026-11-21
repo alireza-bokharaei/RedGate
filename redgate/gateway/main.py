@@ -29,6 +29,9 @@ from gateway.auth import AuthManager, OperatorPrincipal
 from gateway.capabilities import CapabilityRegistry
 from gateway.bugbounty import BugBountyService
 from gateway.capability_api import capability_router
+from gateway.coverage import CoverageLedger, ResponseTracker
+from gateway.intel_api import intel_router
+from gateway.intel_engine import OutcomeStore
 from gateway.evidence_gate import EvidenceGate
 from gateway.exploitation import ExploitationService
 from gateway.exploration import ExplorationService
@@ -109,6 +112,10 @@ class GatewayRuntime:
     loops: HuntLoopService
     runner: ScanRunner
     store: WorkspaceStore
+    # ---- 2.3.1 intel / coverage ------------------------------------------
+    intel_outcomes: OutcomeStore
+    coverage: CoverageLedger
+    responses: ResponseTracker
 
 
 def build_runtime() -> GatewayRuntime:
@@ -208,6 +215,9 @@ def build_runtime() -> GatewayRuntime:
         loops=HuntLoopService(db=db),
         runner=ScanRunner(db=db, scope=scope, policies=policies, mcp=mcp),
         store=workspace_store,
+        intel_outcomes=OutcomeStore(db),
+        coverage=CoverageLedger(db),
+        responses=ResponseTracker(db),
     )
 
 
@@ -1791,6 +1801,16 @@ def create_app(runtime: GatewayRuntime | None = None) -> FastAPI:
             runner=rt.runner,
             registry=rt.registry,
             store=rt.store,
+            get_principal=get_principal,
+            ensure_access=ensure_engagement_access,
+        )
+    )
+    application.include_router(
+        intel_router(
+            db=rt.db,
+            outcomes=rt.intel_outcomes,
+            coverage=rt.coverage,
+            tracker=rt.responses,
             get_principal=get_principal,
             ensure_access=ensure_engagement_access,
         )

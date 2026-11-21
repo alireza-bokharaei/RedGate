@@ -54,6 +54,16 @@ throwaway loopback TLS server with a locally minted certificate and needs only t
 - **Decision engine**: `decide_approach()` is a deterministic rule engine over supplied
   observations. It may propose, never execute, and every step must name the policy row
   that governs it. Do not introduce a model call there.
+- **Intel engine**: every score must expose its terms and weights. The only adaptive
+  input is `intel_outcomes`; do not add hidden state or a model call to a ranking, and
+  keep `tests/test_intel_and_coverage.py` green.
+- **Coverage**: a surface is covered only when a check is recorded for it. Never infer
+  coverage from "a scanner ran", and keep the `covered`-needs-a-check rule in
+  `gateway/coverage.py`.
+- **New tool families** (mobile/wireless/forensics): seed `BASELINE_REFUSED_FLAGS` for
+  anything that hurts bystanders, mark root-dependent tooling `requires_root`, and make
+  artifact-consuming tools pass `takes_artifact()`. An uninstalled binary must answer
+  `unavailable`; never fake output.
 - **Add a gate question**: append it to the manifest, decide whether it is blocking in
   `gateway/evidence_gate.py`, and add a failure fixture. More than one non-blocking
   question weakens `candidate`/`rejected` semantics.

@@ -1,4 +1,4 @@
-# Redstrike 2.3.0 — راهنمای فنی / Technical Guide
+# Redstrike 2.3.1 — راهنمای فنی / Technical Guide
 
 [معرفی پروژه / Project overview](../README.md) · [فارسی](#fa) · [English](#en)
 
@@ -242,6 +242,8 @@ The Gateway checks authentication, engagement access, RoE, scope, quotas and pol
 | `config/tool_policy.yaml` | Tool availability, limits and risk levels |
 | `config/capabilities.yaml` | Capability manifest: six operational modes, mode composition rules, ceilings, TLS profile, expansion limits and evidence-gate questions |
 | `config/policies.yaml` | 2.3 control model: three postures, the four two-person policies, and the per-tool flag surface |
+| `gateway/intel_engine.py` | 2.3.1 hypothesis ranking, budget, exhaustion gate, chain planning, evidence scoring, CVSS 3.1 |
+| `gateway/coverage.py` | 2.3.1 coverage ledger ("covered" needs a check) and response fingerprint diffing |
 | `config/script_policy.yaml` | Script validation/execution policy |
 | `config/llm_proxy.yaml` | Initial model-proxy settings |
 | `config/local_models.yaml` | Model catalog and quantization metadata |
@@ -327,14 +329,14 @@ cloud-metadata denial hold in every posture, including `ctf_aggressive`.
 | `GET /api/v1/offensive/brief` | Session Start Protocol: mission, scope, RoE + remaining budget, TLS status, layers, restrictions |
 | `GET/POST /api/v1/offensive/policy` · `/posture` · `/consent` | Inspect posture, set it (approver only), record hashed consent |
 | `POST /api/v1/offensive/decide` | "May I run this?" without running it |
-| `GET /api/v1/offensive/tools` · `POST /tools/run` | The 144-tool catalogue and the honestly-installed subset |
+| `GET /api/v1/offensive/tools` · `POST /tools/run` | The 183-tool catalogue (15 families incl. mobile, wireless, forensics) and the honestly-installed subset |
 | `POST /api/v1/offensive/findings` … `/{id}/verify` | PoC lifecycle with independent reproduction |
 | `POST /api/v1/offensive/chains` | Attack chains from verified findings only |
 | `POST /api/v1/offensive/explore/discover` … `/mass-scan` | Recursive discovery and budgeted mass scanning |
 | `POST /api/v1/offensive/bounty/…` | Program scope, duplicate checks, report drafts |
 | `GET /api/v1/agents` · `POST /loops` · `GET /brain` | 49 advisory roles, 7-Question-Gate hunt loops, append-only brain |
 
-Three honesty notes: the catalogue has 144 entries but only four binaries are
+Three honesty notes: the catalogue has 183 entries but only four binaries are
 installed on the reference image, and a missing binary returns
 `status: unavailable` with the validated argv rather than invented output;
 `pwntools` is not installed, so that layer reports `unavailable` explicitly;
